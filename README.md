@@ -10,66 +10,90 @@
 
       3.动态追踪。尽管场景中的物体相互位置有不断变化，仍能实时分割、重建、语义标注。
 
+    这个项目库包含MaskFusion，
+    一个实时、对象感知、语义和动态的RGB-D SLAM系统，
+    它超越了传统的只输出几何地图的系统——MaskFusion在跟踪和记录时识别、分割场景中的不同对象并为其分配语义类标签。
+    即使当它们独立于摄像机移动时也会构造它们。
 
+    当RGB-D相机扫描一个杂乱的场景时，基于图像的实例级语义分割创建了语义对象掩码，
+    该语义对象掩码支持实时对象识别并为世界地图创建对象级表示。
+    与以往的基于识别的SLAM系统不同，MaskFusion不需要先验知识或已知的对象模型，
+    它可以识别并且可以处理多个独立的运动。与最近支持语义的SLAM系统不同，
+    执行体素级语义分割的SLAM系统MaskFusion充分利用了使用实例级语义分割来使语义标签融合到对象感知映射中。
+    我们展示了增强现实应用程序，演示了MaskFusion输出的地图的独特特性：实例感知、语义和动态。
 
-
-This repository contains MaskFusion, a real-time, object-aware, semantic and dynamic RGB-D SLAM system that goes beyond traditional systems that output a geometry-only map -- MaskFusion recognizes, segments and assigns semantic class labels to different objects in the scene, while tracking and reconstructing them even when they move independently from the camera.
-
-As an RGB-D camera scans a cluttered scene, image-based instance-level semantic segmentation creates semantic object masks that enable real-time object recognition and the creation of an object-level representation for the world map. Unlike previous recognition-based SLAM systems, MaskFusion does not require prior knowledge or known models of the objects it can recognize and can deal with multiple independent motions. Unlike recent semantics enabled SLAM systems that perform voxel-level semantic segmentation MaskFusion takes full advantage of using instance-level semantic segmentation to enable semantic labels to be fused into an object-aware map. We show augmented-reality applications, that demonstrate the unique features of the map output by MaskFusion: instance-aware, semantic and dynamic.
-
-More information and the paper can be found [here](http://visual.cs.ucl.ac.uk/pubs/maskfusion/index.html).
-
-图片带连接 
+[ 项目主页](http://visual.cs.ucl.ac.uk/pubs/maskfusion/index.html).
 
 [![Figure of MaskFusion](figures/teaser.jpg "Click me to see a video.")](http://visual.cs.ucl.ac.uk/pubs/maskfusion/MaskFusion.mp4)
 
-## Publication
+## 论文 Publication
 
 * [MaskFusion: Real-Time Recognition, Tracking and Reconstruction of Multiple Moving Objects](https://arxiv.org/abs/1804.09194), Martin Rünz, Maud Buffier, Lourdes Agapito, ISMAR '18
 
-## Building MaskFusion
-The script `build.sh` shows step-by-step how MaskFusion is built and which dependencies are required.
-The following CMake options are mandatory: `PYTHON_VE_PATH`, `MASKFUSION_MASK_RCNN_DIR` and it is recommended to set `MASKFUSION_GPUS_MASKRCNN` as well.
+## 编译 Building MaskFusion
+    脚本 `build.sh` 展示了构建 MaskFusion的详细过程，以及相关的依赖项
 
-### CMake options:
-* `MASKFUSION_GPUS_MASKRCNN`: List of GPUs used by MaskRCNN, ideally disjunct from SLAM GPU
-* `MASKFUSION_GPU_SLAM`: GPU use by SLAM system, this has to be the GPU used by OpenGL
-* `MASKFUSION_MASK_RCNN_DIR`: Path to your [Matterport MaskRCNN](https://github.com/matterport/Mask_RCNN) installation
-* `MASKFUSION_NUM_GSURFELS`: Surfels allocated for environment model
-* `MASKFUSION_NUM_OSURFELS`: Surfels allocated per object model
-* `PYTHON_VE_PATH`: Path to (the root of) virtual python environment, used for tensorflow
+### CMake options 编译选项
+* `MASKFUSION_GPUS_MASKRCNN`: 目标分割使用的 GPU序列，与 SLAM 使用的 GPU分开
+* `MASKFUSION_GPU_SLAM`:      SLAM使用的GPU序列， 主要使用者是 OpenGL 
+* `MASKFUSION_MASK_RCNN_DIR`: MASKRCNN的安装路径 [Matterport MaskRCNN](https://github.com/matterport/Mask_RCNN)
+* `MASKFUSION_NUM_GSURFELS`:  全局模型(环境模型)数量 Surfels allocated for environment model
+* `MASKFUSION_NUM_OSURFELS`:  目标模型数量 Surfels allocated per object model
+* `PYTHON_VE_PATH`:           PYTHON 虚拟环境路径 Path to (the root of) virtual python environment, used for tensorflow
 
-### Dependencies
+### 依赖项 Dependencies
 * Python3
 * Tensorflow (>1.3.0, tested with 1.8.0)
 * Keras (>2.1.2)
 * MaskRCNN
 
 
-## Running MaskFusion
+## 运行 Running MaskFusion
 
-* **Select the object categories** you would like to label by MaskRCNN. To do so, adjust the array `FILTER_CLASSES` within `Core/Segmentation/MaskRCNN/MaskRCNN.py.in`. For instance, `FILTER_CLASSES = ['person', 'skateboard', 'teddy bear']` results in _skateboards_ and _teddy bears_ being tracked. In the current setup, regions that are labelled as _person_ are ignored. An empty array indicates that all possible labels should be used.
+* **Select the object categories** you would like to label by MaskRCNN. 
 
-* Tracking of individual objects can easily be enabled / disabled by calling `makeStatic()` and `makeNonStatic()` of instances of the `Model` class. The overall system runs more robustly if objects are only tracked when being touched by a person. We are **not** providing hand-detection software at the moment.
+         调整识别的物体类别 `FILTER_CLASSES` within `Core/Segmentation/MaskRCNN/MaskRCNN.py.in`.
+         For instance, `FILTER_CLASSES = ['person', 'skateboard', 'teddy bear']` 
+         results in _skateboards_ 和 _teddy bears_ 被跟踪. 
+         _person_ 被忽略. 
+         空的数组，意味着所有的类别都会使用。
+
+* 跟踪固定的目标
+
+        enabled / disabled by calling `makeStatic()` and `makeNonStatic()` of instances of the `Model` class. 
+
+        The overall system runs more robustly if objects are only tracked when being touched by a person. 
+
+        We are **not** providing hand-detection software at the moment.
 
 ## Dataset and evaluation tools
 
 ### Tools
-* Recorder for klg files: https://github.com/mp3guy/Logger2
-* Viewer for klg files: https://github.com/mp3guy/LogView
-* Images -> klg converter: https://github.com/martinruenz/dataset-tools/tree/master/convert_imagesToKlg
-* klg -> images/pointclouds: https://github.com/martinruenz/dataset-tools/tree/master/convert_klg
-* Evaluate segmentation (intersection-over-union): https://github.com/martinruenz/dataset-tools/tree/master/evaluate_segmentation
-* Scripts to create synthetic datasets with blender: https://github.com/martinruenz/dataset-tools/tree/master/blender
+* 记录 Recorder for klg files: https://github.com/mp3guy/Logger2
+* 可视化 Viewer for klg files: https://github.com/mp3guy/LogView
+* 转换1  Images -> klg converter: https://github.com/martinruenz/dataset-tools/tree/master/convert_imagesToKlg
+* 转换2  klg -> images/pointclouds: https://github.com/martinruenz/dataset-tools/tree/master/convert_klg
+* 评估   Evaluate segmentation (intersection-over-union): https://github.com/martinruenz/dataset-tools/tree/master/evaluate_segmentation
+* 合成数据集 Scripts to create synthetic datasets with blender: https://github.com/martinruenz/dataset-tools/tree/master/blender
 
-## Hardware
-In order to run MaskFusion smoothly, you need a fast GPU with enough memory to store multiple models simultaneously. We used an Nvidia TitanX for most experiments, but also successfully tested MaskFusion on a laptop computer with an Nvidia GeForce™ GTX 960M. If your GPU memory is limited, the `MASKFUSION_NUM_GSURFELS` and `MASKFUSION_NUM_OSURFELS` CMake options can help reduce the memory footprint per model (global/object, respectively).
-While the tracking stage of MaskFusion calls for a fast GPU, the motion based segmentation performance depends on the CPU and accordingly, having a nice processor helps as well.
+## 硬件  Hardware
+    GPU.
+    We used an Nvidia TitanX for most experiments, 
+    but also successfully tested MaskFusion on a laptop computer with an Nvidia GeForce™ GTX 960M. 
 
-## ElasticFusion
+    GPU内存使用：
+
+    If your GPU memory is limited, the `MASKFUSION_NUM_GSURFELS` and `MASKFUSION_NUM_OSURFELS` CMake options can help reduce the memory footprint per model (global/object, respectively).
+
+    CPU.
+    While the tracking stage of MaskFusion calls for a fast GPU, 
+    the motion based segmentation performance depends on the CPU and accordingly, having a nice processor helps as well.
+
+## 基于 ElasticFusion
 The overall architecture and terminal-interface of MaskFusion is based on [ElasticFusion](https://github.com/mp3guy/ElasticFusion) and the ElasticFusion [readme file](https://github.com/mp3guy/ElasticFusion/blob/master/README.md) contains further useful information.
 
-## New command line parameters (see [source-file](https://github.com/martinruenz/maskfusion/blob/master/GUI/MainController.cpp#L34-L96))
+
+## 新的命令行参数 New command line parameters (see [source-file](https://github.com/martinruenz/maskfusion/blob/master/GUI/MainController.cpp#L34-L96))
 
 * **-method:**        Method used for segmentation (cofusion, maskfusion)
 * **-frameQ:**        Set size of frame-queue manually
@@ -99,9 +123,9 @@ The overall architecture and terminal-interface of MaskFusion is based on [Elast
 * **-ep**:            Export poses after finishing run (just before quitting if '-q')
 * **-or**:            Outlier rejection strength (default 3).
 
-## Tips
+## 技巧 Tips
 
-### Running MaskRCNN offline, before executing MaskFusion
+### 线下运行 Running MaskRCNN offline, before executing MaskFusion
 You can use the script `Core/Segmentation/MaskRCNN/offline_runner.py` to extract masks readable by MaskFusion and visualisations. Use the `-maskdir` parameter to input these masks into MaskFusion.
 Example usage: `./offline_runner.py -i /path/to/rgb/frames -o /path/to/output/masks --filter teddy_bear`
 
