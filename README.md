@@ -1,5 +1,18 @@
 # MaskFusion
 
+    他们在SLAM技术的基础上引入了实例语义分割，效果视频相当惊艳，一起来看看吧。
+
+    作者演示并声称该RGB-D SLAM系统不仅能实现实时的场景感知3D重建，更是具有吸引人的三大特点：
+
+      1.实例感知。无需事先给定物体的先验知识或者已知模型，也能进行场景中的多目标识别；
+
+      2.语义分割。借助于语义实例分割技术，能够实时在场景中对物体分配语义标签；
+
+      3.动态追踪。尽管场景中的物体相互位置有不断变化，仍能实时分割、重建、语义标注。
+
+
+
+
 This repository contains MaskFusion, a real-time, object-aware, semantic and dynamic RGB-D SLAM system that goes beyond traditional systems that output a geometry-only map -- MaskFusion recognizes, segments and assigns semantic class labels to different objects in the scene, while tracking and reconstructing them even when they move independently from the camera.
 
 As an RGB-D camera scans a cluttered scene, image-based instance-level semantic segmentation creates semantic object masks that enable real-time object recognition and the creation of an object-level representation for the world map. Unlike previous recognition-based SLAM systems, MaskFusion does not require prior knowledge or known models of the objects it can recognize and can deal with multiple independent motions. Unlike recent semantics enabled SLAM systems that perform voxel-level semantic segmentation MaskFusion takes full advantage of using instance-level semantic segmentation to enable semantic labels to be fused into an object-aware map. We show augmented-reality applications, that demonstrate the unique features of the map output by MaskFusion: instance-aware, semantic and dynamic.
