@@ -19,6 +19,8 @@ As an RGB-D camera scans a cluttered scene, image-based instance-level semantic 
 
 More information and the paper can be found [here](http://visual.cs.ucl.ac.uk/pubs/maskfusion/index.html).
 
+图片带连接 
+
 [![Figure of MaskFusion](figures/teaser.jpg "Click me to see a video.")](http://visual.cs.ucl.ac.uk/pubs/maskfusion/MaskFusion.mp4)
 
 ## Publication
