@@ -4,7 +4,7 @@
 # 创建脚本
 # 
 # 参数 Use parameters:
-# `--install-packages` ubuntu依赖项安装位置 to install required Ubuntu packages
+# `--install-packages` ubuntu依赖项安装 to install required Ubuntu packages
 # `--install-cuda`     显卡cuda加速 to install the NVIDIA CUDA suite
 # `--build-dependencies` 安装第三方依赖库位置 to build third party dependencies
 #
@@ -34,18 +34,24 @@ function git_clone(){
 # Ensure that current directory is root of project
 cd $(dirname `realpath $0`)
 
+# bash中高亮显示字符
 # Enable colors
 source deps/bashcolors/bash_colors.sh
 function highlight(){
   clr_magentab clr_bold clr_white "$1"
 }
 
-
+# ubuntu依赖项安装
 if [[ $* == *--install-packages* ]] ; then
+  # bash中高亮显示
   highlight "Installing system packages..."
   # Get ubuntu version:
   sudo apt-get install -y wget software-properties-common
-  source /etc/lsb-release # fetch DISTRIB_CODENAME
+  source /etc/lsb-release # fetch DISTRIB_CODENAME 获取DISTRIB_CODENAME  ubuntu版本
+  
+# Shell中的条件判断语句if []; ~ then ~fi===============================================
+# if-then-elif-then-elif-then-...-else-fi。这种语句可以实现多重判断，注意最后一定要以一个else结尾。===========
+# ubuntu 14.04  trusty
   if [[ $DISTRIB_CODENAME == *"trusty"* ]] ; then
     # g++ 4.9.4
     sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
@@ -54,7 +60,7 @@ if [[ $* == *--install-packages* ]] ; then
     # openjdk 8
     sudo add-apt-repository -y ppa:openjdk-r/ppa
   fi
-
+  # 安装各种软件 输出重定向到呀设备 也就是不输出信息 > /dev/null 
   sudo apt-get update > /dev/null
   sudo apt-get install -y \
     build-essential \
