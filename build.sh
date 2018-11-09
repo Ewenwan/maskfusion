@@ -1,11 +1,12 @@
 #!/bin/bash -e
 #
 # This is a build script for MaskFusion.
-#
-# Use parameters:
-# `--install-packages` to install required Ubuntu packages
-# `--install-cuda` to install the NVIDIA CUDA suite
-# `--build-dependencies` to build third party dependencies
+# 创建脚本
+# 
+# 参数 Use parameters:
+# `--install-packages` ubuntu依赖项安装位置 to install required Ubuntu packages
+# `--install-cuda`     显卡cuda加速 to install the NVIDIA CUDA suite
+# `--build-dependencies` 安装第三方依赖库位置 to build third party dependencies
 #
 # Example:
 #   ./build.sh --install-packages --build-dependencies
@@ -20,6 +21,7 @@
 #   - ./deps/coco
 #   - ./deps/Mask_RCNN
 
+# git clone 下载函数
 # Function that executes the clone command given as $1 iff repo does not exist yet. Otherwise pulls.
 # Only works if repository path ends with '.git'
 # Example: git_clone "git clone --branch 3.4.1 --depth=1 https://github.com/opencv/opencv.git"
@@ -28,6 +30,7 @@ function git_clone(){
   git -C "$repo_dir" pull 2> /dev/null || eval "$1"
 }
 
+# 进入到文件夹
 # Ensure that current directory is root of project
 cd $(dirname `realpath $0`)
 
