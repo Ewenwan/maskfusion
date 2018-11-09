@@ -5,7 +5,7 @@
 # 
 # 参数 Use parameters:
 # `--install-packages` ubuntu依赖项安装 to install required Ubuntu packages
-# `--install-cuda`     显卡cuda加速 to install the NVIDIA CUDA suite
+# `--install-cuda`     安装显卡cuda加速 to install the NVIDIA CUDA suite
 # `--build-dependencies` 安装第三方依赖库位置 to build third party dependencies
 #
 # Example:
@@ -79,7 +79,8 @@ if [[ $* == *--install-packages* ]] ; then
     unzip \
     zlib1g-dev \
     cython3
-
+    
+# virtualenv 是一个创建隔绝的Python环境的工具。========
     sudo -H pip3 install virtualenv
 
   if [[ $DISTRIB_CODENAME == *"trusty"* ]] ; then
@@ -91,26 +92,34 @@ if [[ $* == *--install-packages* ]] ; then
 
 fi # --install-packages
 
-
+# 安装显卡cuda加速======================
 if [[ $* == *--install-cuda* ]] ; then
+  # bash中高亮显示
   highlight "Installing CUDA..."
   # Get ubuntu version:
   sudo apt-get install -y wget software-properties-common
   source /etc/lsb-release # fetch DISTRIB_CODENAME
+  # ubuntu 14.04
   if [[ $DISTRIB_CODENAME == *"trusty"* ]] ; then
     # CUDA
+    # wget下载
     wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_7.5-18_amd64.deb
+    # dpkg安装
     sudo dpkg -i cuda-repo-ubuntu1404_7.5-18_amd64.deb
     rm cuda-repo-ubuntu1404_7.5-18_amd64.deb
     sudo apt-get update > /dev/null
     sudo apt-get install -y cuda-7-5
+  # ubuntu 15.04
   elif [[ $DISTRIB_CODENAME == *"vivid"* ]] ; then
     # CUDA
+    # wget下载
     wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1504/x86_64/cuda-repo-ubuntu1504_7.5-18_amd64.deb
+    # dpkg安装
     sudo dpkg -i cuda-repo-ubuntu1504_7.5-18_amd64.deb
     rm cuda-repo-ubuntu1504_7.5-18_amd64.deb
     sudo apt-get update > /dev/null
     sudo apt-get install cuda-7-5
+  # ubuntu 16.04
   elif [[ $DISTRIB_CODENAME == *"xenial"* ]]; then
     wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_8.0.44-1_amd64.deb
     sudo dpkg -i cuda-repo-ubuntu1604_8.0.44-1_amd64.deb
@@ -124,29 +133,48 @@ if [[ $* == *--install-cuda* ]] ; then
 fi # --install-cuda
 
 
+# virtualenv 创建 虚拟环境 来安装项目依赖程序
 # Create virtual python environment and install packages
 highlight "Setting up virtual python environment..."
 virtualenv python-environment
 source python-environment/bin/activate
 pip3 install pip --upgrade
+# tensorflow 1.8.0 GPU版本
 pip3 install tensorflow-gpu==1.8.0
+# Python语言用于数字图像处理 
+# scikit-image 是基于scipy的一款图像处理包，它将图片作为numpy数组进行处理，正好与matlab一样
 pip3 install scikit-image
+# Keras:基于Python的深度学习库
+# Keras是一个高层神经网络API，Keras由纯Python编写而成并基Tensorflow、Theano以及CNTK后端
 pip3 install keras
+# IPython:一种交互式计算和开发环境的笔记
+# 是一个 python 的交互式 shell，比默认的python shell 好用得多，支持变量自动补全，自动缩进，
+# 支持 bash shell 命令，内置了许多很有用的功能和函数。
 pip3 install IPython
+# h5py文件是存放两类对象的容器，数据集(dataset)和组(group)，dataset类似数组类的数据集合
+# HDF（Hierarchical Data Format）指一种为存储和处理大容量科学数据设计的文件格式及相应库文件。
 pip3 install h5py
+# Cython是让Python脚本支持C语言扩展的编译器
+# Cython能够将Python+C混合编码的.pyx脚本转换为C代码
+# https://github.com/Ewenwan/EasonCodeShare/tree/master/cython_tutorials/hello_world
 pip3 install cython
+# imgaug是一个封装好的用来进行图像augmentation的python库,支持关键点(keypoint)和bounding box一起变换。
+# 数据增强 数据增多
 pip3 install imgaug
+# opencv-python接口
 pip3 install opencv-python
+# 符号链接 软件链接
 ln -s python-environment/lib/python3.5/site-packages/numpy/core/include/numpy Core/Segmentation/MaskRCNN
 
 
-
+# 创建项目
 if [[ $* == *--build-dependencies* ]] ; then
 
   # Build dependencies
   mkdir -p deps
   cd deps
-
+  
+  # 编译opencv====================
   highlight "Building opencv..."
   git_clone "git clone --branch 3.4.1 --depth=1 https://github.com/opencv/opencv.git"
   cd opencv
@@ -195,7 +223,8 @@ if [[ $* == *--build-dependencies* ]] ; then
   cd ../build
   OpenCV_DIR=$(pwd)
   cd ../..
-
+  
+# 编译 boost==========================================
   if [ -z "${BOOST_ROOT}" -a ! -d boost ]; then
     highlight "Building boost..."
     wget --no-clobber -O boost_1_62_0.tar.bz2 https://sourceforge.net/projects/boost/files/boost/1.62.0/boost_1_62_0.tar.bz2/download
@@ -210,6 +239,7 @@ if [[ $* == *--build-dependencies* ]] ; then
     BOOST_ROOT=$(pwd)/boost
   fi
 
+# 编译可视化 pangolin ====================================
   # build pangolin
   highlight "Building pangolin..."
   git_clone "git clone --depth=1 https://github.com/stevenlovegrove/Pangolin.git"
@@ -222,6 +252,7 @@ if [[ $* == *--build-dependencies* ]] ; then
   Pangolin_DIR=$(pwd)
   cd ../..
 
+# 编译 OpenNI2 3D传感器 开发接口====================================
   # build OpenNI2
   highlight "Building openni2..."
   git_clone "git clone --depth=1 https://github.com/occipital/OpenNI2.git"
@@ -230,6 +261,7 @@ if [[ $* == *--build-dependencies* ]] ; then
   make -j8
   cd ..
 
+# 可视化 封装 openGL
   # build freetype-gl-cpp
   highlight "Building freetype-gl-cpp..."
   git_clone "git clone --depth=1 --recurse-submodules https://github.com/martinruenz/freetype-gl-cpp.git"
@@ -241,6 +273,8 @@ if [[ $* == *--build-dependencies* ]] ; then
   make install
   cd ../..
 
+# 条件随机场 语义分割 https://blog.csdn.net/u012759136/article/details/52434826
+# 全连接条件随机场(DenseCRF)
   # build DenseCRF, see: http://graphics.stanford.edu/projects/drf/
   highlight "Building densecrf..."
   git_clone "git clone --depth=1 https://github.com/martinruenz/densecrf.git"
