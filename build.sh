@@ -288,7 +288,7 @@ if [[ $* == *--build-dependencies* ]] ; then
     ..
   make -j8
   cd ../..
-
+#   实时超像素分割============================
   # build gSLICr, see: http://www.robots.ox.ac.uk/~victor/gslicr/
   highlight "Building gslicr..."
   git_clone "git clone --depth=1 https://github.com/carlren/gSLICr.git"
@@ -305,6 +305,7 @@ if [[ $* == *--build-dependencies* ]] ; then
   make -j8
   cd ../..
 
+# MaskRCNN   目标语义分割 实例分割==============
   # Prepare MaskRCNN and data
   highlight "Building mask-rcnn with ms-coco..."
   git_clone "git clone --depth=1 https://github.com/matterport/Mask_RCNN.git"
@@ -326,6 +327,8 @@ if [ -z "${BOOST_ROOT}" -a -d deps/boost ]; then
   BOOST_ROOT=$(pwd)/deps/boost
 fi
 
+
+# 编译最终的项目  动态slam  动态目标检测跟踪重建
 # Build MaskFusion
 highlight "Building MaskFusion..."
 mkdir -p build
