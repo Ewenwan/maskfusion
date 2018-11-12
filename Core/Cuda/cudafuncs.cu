@@ -1,51 +1,7 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- * 
- * The use of the code within this file and all code within files that 
- * make up the software that is ElasticFusion is permitted for 
- * non-commercial purposes only.  The full terms and conditions that 
- * apply to the code within this file are detailed within the LICENSE.txt 
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/> 
- * unless explicitly stated.  By downloading this file you agree to 
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then 
- * please email researchcontracts.engineering@imperial.ac.uk.
- *
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
+ * 图像操作 常用函数实现
+ * 高斯下采样、深度值三角变换 归一化map 深度转3D点 点转深度 拷贝 变形
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -53,10 +9,12 @@
 #include "convenience.cuh"
 #include "operators.cuh"
 
+// 金字塔高斯模糊下采样 函数核 
 __global__ void pyrDownGaussKernel (const PtrStepSz<float> src, PtrStepSz<float> dst, float sigma_color)
 {
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    // 二维线程块
+    int x = blockIdx.x * blockDim.x + threadIdx.x;// 按行索引的线程索引
+    int y = blockIdx.y * blockDim.y + threadIdx.y;// 按列索引的线程索引
 
     if (x >= dst.cols || y >= dst.rows)
         return;
@@ -92,11 +50,20 @@ __global__ void pyrDownGaussKernel (const PtrStepSz<float> src, PtrStepSz<float>
     dst.ptr (y)[x] = static_cast<int>(sum / wall);
 }
 
+// 金字塔下采样函数=============================================================================
 void pyrDown(const DeviceArray2D<unsigned short> & src, DeviceArray2D<unsigned short> & dst)
 {
-    dst.create (src.rows () / 2, src.cols () / 2);
-
-    dim3 block (32, 8);
+    // src 目标图像      gpu二维数组
+    // dst 下采样后的图像 
+    dst.create (src.rows () / 2, src.cols () / 2);// 下采样后的尺寸
+//  1. dim3是基亍uint3定义的矢量类型，相当亍由3个unsigned int型组成的结构体。
+//       uint3类型有三个数据成员unsigned int x; unsigned int y; unsigned int z;
+//  2. 可使用亍一维、二维或三维的索引来标识线程，构成一维、二维或三维线程块。
+//  3. dim3结构类型变量用在核函数调用的<<<,>>>中。
+// https://github.com/Ewenwan/ShiYanLou/blob/master/CUDA/readme.md
+    
+    dim3 block (32, 8);// 二维线程块
+    // 线程格
     dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
 
     const float sigma_color = 30;
@@ -105,19 +72,26 @@ void pyrDown(const DeviceArray2D<unsigned short> & src, DeviceArray2D<unsigned s
     cudaCheckError();
 }
 
+// 深度值 + 相机内参数计算 x,y,z三维点 核函数==========================================
 // Generate a vertex map 'vmap' based on the depth map 'depth' and camera parameters
-__global__ void computeVmapKernel(const PtrStepSz<float> depth, PtrStep<float> vmap, float fx_inv, float fy_inv, float cx, float cy, float depthCutoff)
+__global__ void computeVmapKernel(const PtrStepSz<float> depth, 
+                                  PtrStep<float> vmap, 
+                                  float fx_inv, 
+                                  float fy_inv, 
+                                  float cx, 
+                                  float cy, 
+                                  float depthCutoff)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
 
     if(u < depth.cols && v < depth.rows)
     {
-        float z = depth.ptr (v)[u];
+        float z = depth.ptr (v)[u];// 深度值=============
 
         if(z > 0.0f && z < depthCutoff)
         {
-            float vx = z * (u - cx) * fx_inv;
+            float vx = z * (u - cx) * fx_inv; // x，y,z三坐标值
             float vy = z * (v - cy) * fy_inv;
             float vz = z;
 
@@ -133,15 +107,19 @@ __global__ void computeVmapKernel(const PtrStepSz<float> depth, PtrStep<float> v
     }
 }
 
-void createVMap(const CameraModel& intr, const DeviceArray2D<float> & depth, DeviceArray2D<float> & vmap, const float depthCutoff)
+// 深度值 + 相机内参数计算 x,y,z三维点 三角变换=================================================
+void createVMap(const CameraModel& intr, 
+                const DeviceArray2D<float> & depth, 
+                DeviceArray2D<float> & vmap, 
+                const float depthCutoff)
 {
     vmap.create (depth.rows () * 3, depth.cols ());
 
-    dim3 block (32, 8);
-    dim3 grid (1, 1, 1);
+    dim3 block (32, 8);// 二维 线程块
+    dim3 grid (1, 1, 1);// 二维线程 格
     grid.x = getGridDim (depth.cols (), block.x);
     grid.y = getGridDim (depth.rows (), block.y);
-
+    // 相机内参数
     float fx = intr.fx, cx = intr.cx;
     float fy = intr.fy, cy = intr.cy;
 
@@ -149,6 +127,7 @@ void createVMap(const CameraModel& intr, const DeviceArray2D<float> & depth, Dev
     cudaSafeCall (cudaGetLastError ());
 }
 
+// 归一化map===============
 __global__ void computeNmapKernel(int rows, int cols, const PtrStep<float> vmap, PtrStep<float> nmap)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
@@ -164,16 +143,19 @@ __global__ void computeNmapKernel(int rows, int cols, const PtrStep<float> vmap,
     }
 
     float3 v00, v01, v10;
+    // x
     v00.x = vmap.ptr (v  )[u];
     v01.x = vmap.ptr (v  )[u + 1];
     v10.x = vmap.ptr (v + 1)[u];
 
     if (!isnan (v00.x) && !isnan (v01.x) && !isnan (v10.x))
     {
+        // y
         v00.y = vmap.ptr (v + rows)[u];
         v01.y = vmap.ptr (v + rows)[u + 1];
         v10.y = vmap.ptr (v + 1 + rows)[u];
-
+        
+        // z
         v00.z = vmap.ptr (v + 2 * rows)[u];
         v01.z = vmap.ptr (v + 2 * rows)[u + 1];
         v10.z = vmap.ptr (v + 1 + 2 * rows)[u];
@@ -187,12 +169,13 @@ __global__ void computeNmapKernel(int rows, int cols, const PtrStep<float> vmap,
     else
         nmap.ptr (v)[u] = __int_as_float(0x7fffffff); /*CUDART_NAN_F*/
 }
-
-void createNMap(const DeviceArray2D<float>& vmap, DeviceArray2D<float>& nmap)
+// 归一化map===============
+void createNMap(const DeviceArray2D<float>& vmap, 
+                DeviceArray2D<float>& nmap)
 {
     nmap.create (vmap.rows (), vmap.cols ());
 
-    int rows = vmap.rows () / 3;
+    int rows = vmap.rows () / 3;// ？？？？
     int cols = vmap.cols ();
 
     dim3 block (32, 8);
@@ -204,8 +187,15 @@ void createNMap(const DeviceArray2D<float>& vmap, DeviceArray2D<float>& nmap)
     cudaSafeCall (cudaGetLastError ());
 }
 
-__global__ void tranformMapsKernel(int rows, int cols, const PtrStep<float> vmap_src, const PtrStep<float> nmap_src,
-                                   const mat33 Rmat, const float3 tvec, PtrStepSz<float> vmap_dst, PtrStep<float> nmap_dst)
+
+
+
+__global__ void tranformMapsKernel(int rows, int cols, 
+                                   const PtrStep<float> vmap_src, 
+                                   const PtrStep<float> nmap_src,
+                                   const mat33 Rmat, 
+                                   const float3 tvec, PtrStepSz<float> vmap_dst,
+                                   PtrStep<float> nmap_dst)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -221,7 +211,7 @@ __global__ void tranformMapsKernel(int rows, int cols, const PtrStep<float> vmap
             vsrc.y = vmap_src.ptr (y + rows)[x];
             vsrc.z = vmap_src.ptr (y + 2 * rows)[x];
 
-            vdst = Rmat * vsrc + tvec;
+            vdst = Rmat * vsrc + tvec;// 3D点刚体变换  
 
             vmap_dst.ptr (y + rows)[x] = vdst.y;
             vmap_dst.ptr (y + 2 * rows)[x] = vdst.z;
@@ -238,7 +228,7 @@ __global__ void tranformMapsKernel(int rows, int cols, const PtrStep<float> vmap
             nsrc.y = nmap_src.ptr (y + rows)[x];
             nsrc.z = nmap_src.ptr (y + 2 * rows)[x];
 
-            ndst = Rmat * nsrc;
+            ndst = Rmat * nsrc;// 归一化MAP只需要 旋转变换即可！！！！！！！！
 
             nmap_dst.ptr (y + rows)[x] = ndst.y;
             nmap_dst.ptr (y + 2 * rows)[x] = ndst.z;
@@ -247,7 +237,7 @@ __global__ void tranformMapsKernel(int rows, int cols, const PtrStep<float> vmap
         nmap_dst.ptr (y)[x] = ndst.x;
     }
 }
-
+// 3Di点 RT刚体变换  ===========================================
 void tranformMaps(const DeviceArray2D<float>& vmap_src,
                   const DeviceArray2D<float>& nmap_src,
                   const mat33& Rmat, const float3& tvec,
@@ -268,8 +258,14 @@ void tranformMaps(const DeviceArray2D<float>& vmap_src,
     cudaSafeCall(cudaGetLastError());
 }
 
-__global__ void copyMapsKernel(int rows, int cols, const float * vmap_src, const float * nmap_src,
-                               PtrStepSz<float> vmap_dst, PtrStep<float> nmap_dst)
+
+
+// 拷贝 3D地图点和归一化MAP===========================
+__global__ void copyMapsKernel(int rows, int cols, 
+                               const float * vmap_src, 
+                               const float * nmap_src,
+                               PtrStepSz<float> vmap_dst, 
+                               PtrStep<float> nmap_dst)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -309,7 +305,7 @@ __global__ void copyMapsKernel(int rows, int cols, const float * vmap_src, const
         nmap_dst.ptr (y + 2 * rows)[x] = ndst.z;
     }
 }
-
+// 拷贝 3D地图点和归一化MAP========================================
 void copyMaps(const DeviceArray<float>& vmap_src,
               const DeviceArray<float>& nmap_src,
               DeviceArray2D<float>& vmap_dst,
@@ -330,7 +326,12 @@ void copyMaps(const DeviceArray<float>& vmap_src,
     cudaSafeCall(cudaGetLastError());
 }
 
-__global__ void pyrDownKernelGaussF(const PtrStepSz<float> src, PtrStepSz<float> dst, float * gaussKernel)
+
+
+// 自定义高斯核下采样====================================
+__global__ void pyrDownKernelGaussF(const PtrStepSz<float> src, 
+                                    PtrStepSz<float> dst, 
+                                    float * gaussKernel)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -362,9 +363,39 @@ __global__ void pyrDownKernelGaussF(const PtrStepSz<float> src, PtrStepSz<float>
     }
     dst.ptr (y)[x] = (float)(sum / (float)count);
 }
+// 5×5高斯核下采样==float类型======================
+void pyrDownGaussF(const DeviceArray2D<float>& src, 
+                   DeviceArray2D<float> & dst)
+{
+    dst.create (src.rows () / 2, src.cols () / 2);
 
+    dim3 block (32, 8);
+    dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
+
+    const float gaussKernel[25] = 
+                   {1, 4, 6, 4, 1,
+                    4, 16, 24, 16, 4,
+                    6, 24, 36, 24, 6,
+                    4, 16, 24, 16, 4,
+                    1, 4, 6, 4, 1};
+
+    float * gauss_cuda;
+
+    cudaSafeCall(cudaMalloc((void**) &gauss_cuda, sizeof(float) * 25));
+    cudaSafeCall(cudaMemcpy(gauss_cuda, &gaussKernel[0], sizeof(float) * 25, cudaMemcpyHostToDevice));
+
+    pyrDownKernelGaussF<<<grid, block>>>(src, dst, gauss_cuda);
+    cudaCheckError();
+
+    cudaFree(gauss_cuda);
+}
+
+
+// map变形==================================
 template<bool normalize>
-__global__ void resizeMapKernel(int drows, int dcols, int srows, const PtrStep<float> input, PtrStep<float> output)
+__global__ void resizeMapKernel(int drows, int dcols, int srows, 
+                                const PtrStep<float> input, 
+                                PtrStep<float> output)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -415,7 +446,7 @@ __global__ void resizeMapKernel(int drows, int dcols, int srows, const PtrStep<f
         output.ptr (y + 2 * drows)[x] = n.z;
     }
 }
-
+// map变形==================================
 template<bool normalize>
 void resizeMap(const DeviceArray2D<float>& input, DeviceArray2D<float>& output)
 {
@@ -507,31 +538,11 @@ void testCuda(cudaSurfaceObject_t surface)//(float* data)
     cudaCheckError();
 }*/
 
-void pyrDownGaussF(const DeviceArray2D<float>& src, DeviceArray2D<float> & dst)
-{
-    dst.create (src.rows () / 2, src.cols () / 2);
 
-    dim3 block (32, 8);
-    dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
-
-    const float gaussKernel[25] = {1, 4, 6, 4, 1,
-                    4, 16, 24, 16, 4,
-                    6, 24, 36, 24, 6,
-                    4, 16, 24, 16, 4,
-                    1, 4, 6, 4, 1};
-
-    float * gauss_cuda;
-
-    cudaSafeCall(cudaMalloc((void**) &gauss_cuda, sizeof(float) * 25));
-    cudaSafeCall(cudaMemcpy(gauss_cuda, &gaussKernel[0], sizeof(float) * 25, cudaMemcpyHostToDevice));
-
-    pyrDownKernelGaussF<<<grid, block>>>(src, dst, gauss_cuda);
-    cudaCheckError();
-
-    cudaFree(gauss_cuda);
-}
-
-__global__ void pyrDownKernelIntensityGauss(const PtrStepSz<unsigned char> src, PtrStepSz<unsigned char> dst, float * gaussKernel)
+// 5×5高斯核下采样==unsigned char类型======================
+__global__ void pyrDownKernelIntensityGauss(const PtrStepSz<unsigned char> src, 
+                                            PtrStepSz<unsigned char> dst, 
+                                            float * gaussKernel)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -562,14 +573,16 @@ __global__ void pyrDownKernelIntensityGauss(const PtrStepSz<unsigned char> src, 
         }
     dst.ptr (y)[x] = (sum / (float)count);
 }
-
-void pyrDownUcharGauss(const DeviceArray2D<unsigned char>& src, DeviceArray2D<unsigned char> & dst)
+// 5×5高斯核下采样==unsigned char类型======================
+void pyrDownUcharGauss(const DeviceArray2D<unsigned char>& src, 
+                       DeviceArray2D<unsigned char> & dst)
 {
     dst.create (src.rows () / 2, src.cols () / 2);
 
     dim3 block (32, 8);
     dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
-
+    
+    //  5×5高斯核
     const float gaussKernel[25] = {1, 4, 6, 4, 1,
                     4, 16, 24, 16, 4,
                     6, 24, 36, 24, 6,
@@ -599,6 +612,7 @@ void pyrDownUcharGauss(const DeviceArray2D<unsigned char>& src, DeviceArray2D<un
     cudaCheckError();
 }*/
 
+// 3d点转 深度图===================================
 __global__ void verticesToDepthKernel(const float * vmap_src, PtrStepSz<float> dst, float cutOff)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -611,7 +625,7 @@ __global__ void verticesToDepthKernel(const float * vmap_src, PtrStepSz<float> d
 
     dst.ptr(y)[x] = z > cutOff || z <= 0 ? __int_as_float(0x7fffffff)/*CUDART_NAN_F*/ : z;
 }
-
+// 3d map转 深度图===================================
 void verticesToDepth(DeviceArray<float>& vmap_src, DeviceArray2D<float> & dst, float cutOff)
 {
     dim3 block (32, 8);
@@ -623,6 +637,7 @@ void verticesToDepth(DeviceArray<float>& vmap_src, DeviceArray2D<float> & dst, f
 
 texture<uchar4, 2, cudaReadModeElementType> inTex;
 
+// RGB图转灰度图=======================================
 __global__ void bgr2IntensityKernel(PtrStepSz<unsigned char> dst)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -632,12 +647,16 @@ __global__ void bgr2IntensityKernel(PtrStepSz<unsigned char> dst)
         return;
 
     uchar4 src = tex2D(inTex, x, y);
-
+//  Gray = R*0.299 + G*0.587 + B*0.114; 
+//  Gray = (R*299 + G*587 + B*114 + 500); // 1000所以需要加上500来实现四舍五入。
+//  Gray = (R*30 + G*59 + B*11 + 50) / 100; 
+//  Gray = (R*38 + G*75 + B*15) >> 7
+//  Gray = (R + (WORD)G<<1 + B) >> 2
     int value = (float)src.x * 0.114f + (float)src.y * 0.299f + (float)src.z * 0.587f;
 
     dst.ptr (y)[x] = value;
 }
-
+// RGB图转灰度图=======================================
 void imageBGRToIntensity(cudaArray * cuArr, DeviceArray2D<unsigned char> & dst)
 {
     dim3 block (32, 8);
@@ -655,7 +674,9 @@ void imageBGRToIntensity(cudaArray * cuArr, DeviceArray2D<unsigned char> & dst)
 __constant__ float gsobel_x3x3[9];
 __constant__ float gsobel_y3x3[9];
 
-__global__ void applyKernel(const PtrStepSz<unsigned char> src, PtrStep<short> dx, PtrStep<short> dy)
+__global__ void applyKernel(const PtrStepSz<unsigned char> src, 
+                            PtrStep<short> dx, 
+                            PtrStep<short> dy)
 {
 
   int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -682,16 +703,18 @@ __global__ void applyKernel(const PtrStepSz<unsigned char> src, PtrStep<short> d
   dy.ptr(y)[x] = dyVal;
 }
 
+// 计算图像梯度====================================
 void computeDerivativeImages(DeviceArray2D<unsigned char>& src, DeviceArray2D<short>& dx, DeviceArray2D<short>& dy)
 {
     static bool once = false;
 
     if(!once)
     {
+        // x 水平方向 导数模板 
         float gsx3x3[9] = {0.52201,  0.00000, -0.52201,
                            0.79451, -0.00000, -0.79451,
                            0.52201,  0.00000, -0.52201};
-
+        // y 垂直方向 导数模板
         float gsy3x3[9] = {0.52201, 0.79451, 0.52201,
                            0.00000, 0.00000, 0.00000,
                            -0.52201, -0.79451, -0.52201};
@@ -715,6 +738,7 @@ void computeDerivativeImages(DeviceArray2D<unsigned char>& src, DeviceArray2D<sh
 }
 
 
+// 
 __global__ void projectPointsKernel(const PtrStepSz<float> depth,
                                     PtrStepSz<float3> cloud,
                                     const float invFx,
@@ -735,6 +759,7 @@ __global__ void projectPointsKernel(const PtrStepSz<float> depth,
     cloud.ptr(y)[x].z = z;
 }
 
+// 深度图 转 点云 
 void projectToPointCloud(const DeviceArray2D<float> & depth,
                          const DeviceArray2D<float3> & cloud,
                          CameraModel & intrinsics,
