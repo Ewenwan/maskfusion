@@ -1,21 +1,24 @@
 /*
 * Software License Agreement (BSD License)
-* device_array 的父类 gpu内存
+*  	device_array 的父类 gpu内存 * 实际 gpu内存 分配和释放的 类 
 *
 *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
 */
 
 #include "device_memory.hpp"
-#include "../convenience.cuh"
+#include "../convenience.cuh"// 版本??
 
-#include "cuda_runtime_api.h"
-#include "assert.h"
+#include "cuda_runtime_api.h"// 运行时间
+#include "assert.h"          // 断言宏
 
 //////////////////////////    XADD    ///////////////////////////////
+// __GNUC__             代表gcc的主版本号
+// __GNUC_MINOR__       代表gcc的次版本号
+// __GNUC_PATCHLEVEL__  代表gcc的修正版本号
 
 #ifdef __GNUC__
 
-#if __GNUC__ * 10 + __GNUC_MINOR__ >= 42
+#if __GNUC__ * 10 + __GNUC_MINOR__ >= 42 // gcc 4.2版本
 
 #if !defined WIN32 && (defined __i486__ || defined __i586__ || defined __i686__ || defined __MMX__ || defined __SSE__ || defined __ppc__)
 #define CV_XADD __sync_fetch_and_add
