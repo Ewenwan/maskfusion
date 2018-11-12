@@ -1,35 +1,6 @@
 /*
  * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
+ * cUDA 设备队列  管理多块gpu设备
  *
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
@@ -48,47 +19,47 @@
   * \author Anatoly Baksheev
   */
 template <class T>
-class DeviceArray : public DeviceMemory {
+class DeviceArray : public DeviceMemory {// 继承于 DeviceMemory 设备内存类
  public:
   /** \brief Element type. */
-  typedef T type;
+  typedef T type;// 元素类型
 
   /** \brief Element size. */
-  enum { elem_size = sizeof(T) };
+  enum { elem_size = sizeof(T) };// 元素长度(字节为单位)
 
   /** \brief Empty constructor. */
-  DeviceArray();
+  DeviceArray();// 空的类构造函数
 
   /** \brief Allocates internal buffer in GPU memory
     * \param size_t: number of elements to allocate
     * */
-  DeviceArray(size_t size);
+  DeviceArray(size_t size);// 对其内部内存 buffer 传入T类型元素个数
 
   /** \brief Initializes with user allocated buffer. Reference counting is disabled in this case.
     * \param ptr: pointer to buffer
     * \param size: elemens number
     * */
-  DeviceArray(T* ptr, size_t size);
+  DeviceArray(T* ptr, size_t size);// 分配用户指定的内存单元（对齐等初始化操作）
 
   /** \brief Copy constructor. Just increments reference counter. */
-  DeviceArray(const DeviceArray& other);
+  DeviceArray(const DeviceArray& other);// 拷贝初始化，浅拷贝，仅仅增加 引用计数
 
   /** \brief Assigment operator. Just increments reference counter. */
-  DeviceArray& operator=(const DeviceArray& other);
+  DeviceArray& operator=(const DeviceArray& other);// 等号，赋值初始化 ，浅拷贝，仅仅增加 引用计数
 
   /** \brief Allocates internal buffer in GPU memory. If internal buffer was created before the function recreates it with
    * new size. If new and old sizes are equal it does nothing.
     * \param size: elemens number
     * */
-  void create(size_t size);
+  void create(size_t size);// 在GPU中申请内存 传入T类型元素个数
 
   /** \brief Decrements reference counter and releases internal buffer if needed. */
-  void release();
+  void release(); // 清零引用计数，释放内部存储空间
 
   /** \brief Performs data copying. If destination size differs it will be reallocated.
     * \param other_arg: destination container
     * */
-  void copyTo(DeviceArray& other) const;
+  void copyTo(DeviceArray& other) const;// 深拷贝
 
   /** \brief Uploads data to internal buffer in GPU memory. It calls create() inside to ensure that intenal buffer size is
    * enough.
