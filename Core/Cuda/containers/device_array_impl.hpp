@@ -1,100 +1,72 @@
 /*
  * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
+ * 对应 device_array.hpp 头文件中声明函数的实现    implementation
+ * cUDA 设备内存数据数组 * 1维数组 * 2维数组
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
 #ifndef DEVICE_ARRAY_IMPL_HPP_
 #define DEVICE_ARRAY_IMPL_HPP_
 
+// 内联函数  GPU设备内存 1维数组
 /////////////////////  Inline implementations of DeviceArray ////////////////////////////////////////////
 
 template <class T>
-inline DeviceArray<T>::DeviceArray() {}
+inline DeviceArray<T>::DeviceArray() {}// 空构造函数
 template <class T>
-inline DeviceArray<T>::DeviceArray(size_t size) : DeviceMemory(size * elem_size) {}
+inline DeviceArray<T>::DeviceArray(size_t size) : DeviceMemory(size * elem_size) {}// 元素数量×单元素字节数量 cuda内存
 template <class T>
-inline DeviceArray<T>::DeviceArray(T* ptr, size_t size) : DeviceMemory(ptr, size * elem_size) {}
+inline DeviceArray<T>::DeviceArray(T* ptr, size_t size) : DeviceMemory(ptr, size * elem_size) {}// 指定地址处的内存块
 template <class T>
-inline DeviceArray<T>::DeviceArray(const DeviceArray& other) : DeviceMemory(other) {}
+inline DeviceArray<T>::DeviceArray(const DeviceArray& other) : DeviceMemory(other) {}// 浅拷贝，拷贝初始化
 template <class T>
-inline DeviceArray<T>& DeviceArray<T>::operator=(const DeviceArray& other) {
+inline DeviceArray<T>& DeviceArray<T>::operator=(const DeviceArray& other) {// 浅拷贝，赋值初始化
   DeviceMemory::operator=(other);
   return *this;
 }
 
 template <class T>
-inline void DeviceArray<T>::create(size_t size) {
+inline void DeviceArray<T>::create(size_t size) {// 申请内存空间
   DeviceMemory::create(size * elem_size);
 }
 template <class T>
-inline void DeviceArray<T>::release() {
+inline void DeviceArray<T>::release() {// 释放内存空间
   DeviceMemory::release();
 }
 
 template <class T>
-inline void DeviceArray<T>::copyTo(DeviceArray& other) const {
+inline void DeviceArray<T>::copyTo(DeviceArray& other) const {// 深拷贝，完全复制一个对象
   DeviceMemory::copyTo(other);
 }
 template <class T>
-inline void DeviceArray<T>::upload(const T* host_ptr, size_t size) {
+inline void DeviceArray<T>::upload(const T* host_ptr, size_t size) {// cpu内存数据 到 GPU内存数据
   DeviceMemory::upload(host_ptr, size * elem_size);
 }
 template <class T>
-inline void DeviceArray<T>::download(T* host_ptr) const {
+inline void DeviceArray<T>::download(T* host_ptr) const {//  GPU内存数据 到 cpu内存数据
   DeviceMemory::download(host_ptr);
 }
 
 template <class T>
-void DeviceArray<T>::swap(DeviceArray& other_arg) {
+void DeviceArray<T>::swap(DeviceArray& other_arg) {// GPU内存数据 互相交换
   DeviceMemory::swap(other_arg);
 }
 
 template <class T>
-inline DeviceArray<T>::operator T*() {
+inline DeviceArray<T>::operator T*() {// 返回gpu数据地址指针
   return ptr();
 }
 template <class T>
-inline DeviceArray<T>::operator const T*() const {
+inline DeviceArray<T>::operator const T*() const {// 返回gpu数据地址常量指针
   return ptr();
 }
 template <class T>
-inline size_t DeviceArray<T>::size() const {
+inline size_t DeviceArray<T>::size() const {// 返回元素数量
   return sizeBytes() / elem_size;
 }
 
 template <class T>
-inline T* DeviceArray<T>::ptr() {
+inline T* DeviceArray<T>::ptr() {// DeviceMemory::ptr 方式实现
   return DeviceMemory::ptr<T>();
 }
 template <class T>
@@ -104,24 +76,27 @@ inline const T* DeviceArray<T>::ptr() const {
 
 template <class T>
 template <class A>
-inline void DeviceArray<T>::upload(const std::vector<T, A>& data) {
+inline void DeviceArray<T>::upload(const std::vector<T, A>& data) {// cpu内存中的数组数据 上传到 GPU
   upload(&data[0], data.size());
 }
 template <class T>
 template <class A>
-inline void DeviceArray<T>::download(std::vector<T, A>& data) const {
+inline void DeviceArray<T>::download(std::vector<T, A>& data) const {// GPU内存中的数组数据 上传到 CPU
   data.resize(size());
   if (!data.empty()) download(&data[0]);
 }
 
+
+// 内联函数  GPU设备内存 1维数组
 /////////////////////  Inline implementations of DeviceArray2D ////////////////////////////////////////////
 
+// 数据对齐=============
 template <class T>
 inline DeviceArray2D<T>::DeviceArray2D() {}
 template <class T>
-inline DeviceArray2D<T>::DeviceArray2D(int rows, int cols) : DeviceMemory2D(rows, cols * elem_size) {}
+inline DeviceArray2D<T>::DeviceArray2D(int rows, int cols) : DeviceMemory2D(rows, cols * elem_size) {}// 行，列数×单元素字节量
 template <class T>
-inline DeviceArray2D<T>::DeviceArray2D(int rows, int cols, void* data, size_t stepBytes)
+inline DeviceArray2D<T>::DeviceArray2D(int rows, int cols, void* data, size_t stepBytes)//指定地址
     : DeviceMemory2D(rows, cols * elem_size, data, stepBytes) {}
 template <class T>
 inline DeviceArray2D<T>::DeviceArray2D(const DeviceArray2D& other) : DeviceMemory2D(other) {}
@@ -132,16 +107,16 @@ inline DeviceArray2D<T>& DeviceArray2D<T>::operator=(const DeviceArray2D& other)
 }
 
 template <class T>
-inline void DeviceArray2D<T>::create(int rows, int cols) {
+inline void DeviceArray2D<T>::create(int rows, int cols) {// 申请内存 行 列数
   DeviceMemory2D::create(rows, cols * elem_size);
 }
 template <class T>
-inline void DeviceArray2D<T>::release() {
+inline void DeviceArray2D<T>::release() {// 释放内存
   DeviceMemory2D::release();
 }
 
 template <class T>
-inline void DeviceArray2D<T>::copyTo(DeviceArray2D& other) const {
+inline void DeviceArray2D<T>::copyTo(DeviceArray2D& other) const {// 深拷贝
   DeviceMemory2D::copyTo(other);
 }
 template <class T>
