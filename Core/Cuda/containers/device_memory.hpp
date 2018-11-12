@@ -1,36 +1,7 @@
 /*
  * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
+ * device_array 的父类 gpu内存
+ * 实际 gpu内存 分配和释放的 类
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -50,87 +21,89 @@
 class DeviceMemory {
  public:
   /** \brief Empty constructor. */
-  DeviceMemory();
+  DeviceMemory();// 空的构造函数
 
   /** \brief Destructor. */
-  ~DeviceMemory();
+  ~DeviceMemory();// 析构函数  内存清理
 
   /** \brief Allocates internal buffer in GPU memory
     * \param sizeBytes_arg: amount of memory to allocate
     * */
-  DeviceMemory(size_t sizeBytes_arg);
+  DeviceMemory(size_t sizeBytes_arg);// 传入 总字节数量
 
   /** \brief Initializes with user allocated buffer. Reference counting is disabled in this case.
     * \param ptr_arg: pointer to buffer
     * \param sizeBytes_arg: buffer size
     * */
-  DeviceMemory(void* ptr_arg, size_t sizeBytes_arg);
+  DeviceMemory(void* ptr_arg, size_t sizeBytes_arg);// 从指定地址，对齐的 sizeBytes_arg 个字节 的GPU内存地址
 
   /** \brief Copy constructor. Just increments reference counter. */
-  DeviceMemory(const DeviceMemory& other_arg);
+  DeviceMemory(const DeviceMemory& other_arg);// 浅拷贝，拷贝初始化，仅增加引用计数
 
   /** \brief Assigment operator. Just increments reference counter. */
-  DeviceMemory& operator=(const DeviceMemory& other_arg);
+  DeviceMemory& operator=(const DeviceMemory& other_arg);// 浅拷贝，赋值初始化，仅增加引用计数
 
   /** \brief Allocates internal buffer in GPU memory. If internal buffer was created before the function recreates it with
    * new size. If new and old sizes are equal it does nothing.
     * \param sizeBytes_arg: buffer size
     * */
-  void create(size_t sizeBytes_arg);
+  void create(size_t sizeBytes_arg);// 申请GPU内存单元，出入总字节数量
 
   /** \brief Decrements reference counter and releases internal buffer if needed. */
-  void release();
+  void release();// 释放GPU内存
 
   /** \brief Performs data copying. If destination size differs it will be reallocated.
     * \param other_arg: destination container
     * */
-  void copyTo(DeviceMemory& other) const;
+  void copyTo(DeviceMemory& other) const;// 深拷贝，完全复制另一个对象，克隆
 
   /** \brief Uploads data to internal buffer in GPU memory. It calls create() inside to ensure that intenal buffer size is
    * enough.
     * \param host_ptr_arg: pointer to buffer to upload
     * \param sizeBytes_arg: buffer size
     * */
-  void upload(const void* host_ptr_arg, size_t sizeBytes_arg);
+  void upload(const void* host_ptr_arg, size_t sizeBytes_arg);// CPU 到 GPU 
 
   /** \brief Downloads data from internal buffer to CPU memory
     * \param host_ptr_arg: pointer to buffer to download
     * */
-  void download(void* host_ptr_arg) const;
+  void download(void* host_ptr_arg) const;// gpu 到 CPU
 
   /** \brief Performs swap of data pointed with another device memory.
     * \param other: device memory to swap with
     * */
-  void swap(DeviceMemory& other_arg);
+  void swap(DeviceMemory& other_arg);// 交换 GPU内存中 两个对象的数据
 
   /** \brief Returns pointer for internal buffer in GPU memory. */
   template <class T>
-  T* ptr();
+  T* ptr();// 返回GPU数据 的地址(指针)
 
   /** \brief Returns constant pointer for internal buffer in GPU memory. */
   template <class T>
-  const T* ptr() const;
+  const T* ptr() const;// 返回常量指针
 
   /** \brief Conversion to PtrSz for passing to kernel functions. */
   template <class U>
-  operator PtrSz<U>() const;
+  operator PtrSz<U>() const;// 传递给核函数
 
   /** \brief Returns true if unallocated otherwise false. */
-  bool empty() const;
+  bool empty() const;// 内存未分配
 
-  size_t sizeBytes() const;
+  size_t sizeBytes() const;// 返回 使用的总字节数量
 
  private:
   /** \brief Device pointer. */
-  void* data_;
+  void* data_;// 数据起始指针
 
   /** \brief Allocated size in bytes. */
-  size_t sizeBytes_;
+  size_t sizeBytes_;// 数据字节总数量
 
   /** \brief Pointer to reference counter in CPU memory. */
-  int* refcount_;
+  int* refcount_;// 数据内存区域 引用计数器
 };
 
+
+// gpu内存 2维数组 实现
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /** \brief @b DeviceMemory2D class
   *
