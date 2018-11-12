@@ -115,16 +115,16 @@ class DeviceMemory {
 class DeviceMemory2D {
  public:
   /** \brief Empty constructor. */
-  DeviceMemory2D();
+  DeviceMemory2D();// 空构造函数
 
   /** \brief Destructor. */
-  ~DeviceMemory2D();
+  ~DeviceMemory2D();// 析构函数  内存清理
 
   /** \brief Allocates internal buffer in GPU memory
     * \param rows_arg: number of rows to allocate
     * \param colsBytes_arg: width of the buffer in bytes
     * */
-  DeviceMemory2D(int rows_arg, int colsBytes_arg);
+  DeviceMemory2D(int rows_arg, int colsBytes_arg);// 行数， 列元素总字节数量
 
   /** \brief Initializes with user allocated buffer. Reference counting is disabled in this case.
     * \param rows_arg: number of rows
@@ -132,28 +132,28 @@ class DeviceMemory2D {
     * \param data_arg: pointer to buffer
     * \param stepBytes_arg: stride between two consecutive rows in bytes
     * */
-  DeviceMemory2D(int rows_arg, int colsBytes_arg, void* data_arg, size_t step_arg);
+  DeviceMemory2D(int rows_arg, int colsBytes_arg, void* data_arg, size_t step_arg);// 指定地址 内存块对齐
 
   /** \brief Copy constructor. Just increments reference counter. */
-  DeviceMemory2D(const DeviceMemory2D& other_arg);
+  DeviceMemory2D(const DeviceMemory2D& other_arg);// 浅拷贝，拷贝初始化
 
   /** \brief Assigment operator. Just increments reference counter. */
-  DeviceMemory2D& operator=(const DeviceMemory2D& other_arg);
+  DeviceMemory2D& operator=(const DeviceMemory2D& other_arg);// 浅拷贝，赋值初始化
 
   /** \brief Allocates internal buffer in GPU memory. If internal buffer was created before the function recreates it with
    * new size. If new and old sizes are equal it does nothing.
      * \param ptr_arg: number of rows to allocate
      * \param sizeBytes_arg: width of the buffer in bytes
      * */
-  void create(int rows_arg, int colsBytes_arg);
+  void create(int rows_arg, int colsBytes_arg);// 申请内存
 
   /** \brief Decrements reference counter and releases internal buffer if needed. */
-  void release();
+  void release();// 释放内存
 
   /** \brief Performs data copying. If destination size differs it will be reallocated.
     * \param other_arg: destination container
     * */
-  void copyTo(DeviceMemory2D& other) const;
+  void copyTo(DeviceMemory2D& other) const;// 深拷贝
 
   /** \brief Uploads data to internal buffer in GPU memory. It calls create() inside to ensure that intenal buffer size is
    * enough.
@@ -162,18 +162,18 @@ class DeviceMemory2D {
     * \param rows_arg: number of rows to upload
     * \param sizeBytes_arg: width of host buffer in bytes
     * */
-  void upload(const void* host_ptr_arg, size_t host_step_arg, int rows_arg, int colsBytes_arg);
+  void upload(const void* host_ptr_arg, size_t host_step_arg, int rows_arg, int colsBytes_arg);// CPU 到 GPU
 
   /** \brief Downloads data from internal buffer to CPU memory. User is resposible for correct host buffer size.
     * \param host_ptr_arg: pointer to host buffer to download
     * \param host_step_arg: stride between two consecutive rows in bytes for host buffer
     * */
-  void download(void* host_ptr_arg, size_t host_step_arg) const;
+  void download(void* host_ptr_arg, size_t host_step_arg) const;// GPU 到 CPU
 
   /** \brief Performs swap of data pointed with another device memory.
     * \param other: device memory to swap with
     * */
-  void swap(DeviceMemory2D& other_arg);
+  void swap(DeviceMemory2D& other_arg);// 交换 GPU内的 数据对象
 
   /** \brief Returns pointer to given row in internal buffer.
     * \param y_arg: row index
@@ -214,16 +214,16 @@ class DeviceMemory2D {
 
   /** \brief Stride between two consecutive rows in bytes for internal buffer. Step is stored always and everywhere in
    * bytes!!! */
-  size_t step_;
+  size_t step_;// 两行之间的 空白填充 字节数
 
   /** \brief Width of the buffer in bytes. */
-  int colsBytes_;
+  int colsBytes_;// 一行数据的字节总数
 
   /** \brief Number of rows. */
   int rows_;
 
   /** \brief Pointer to reference counter in CPU memory. */
-  int* refcount_;
+  int* refcount_;// 引用计数
 };
 
 #include "device_memory_impl.hpp"
