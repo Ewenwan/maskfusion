@@ -1,36 +1,6 @@
 /*
  * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
+ * gpu数据 指针、数据大小 获取
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -38,29 +8,32 @@
 #define DEVICE_MEMORY_IMPL_HPP_
 
 /////////////////////  Inline implementations of DeviceMemory ////////////////////////////////////////////
-
+// 1维 数据  针、数据大小获取
 template <class T>
 inline T* DeviceMemory::ptr() {
-  return (T*)data_;
+  return (T*)data_;//数据 指针 
 }
 template <class T>
 inline const T* DeviceMemory::ptr() const {
-  return (const T*)data_;
+  return (const T*)data_;//数据 常量指针 
 }
 
+// 获取 指针 + 元素数量
 template <class U>
 inline DeviceMemory::operator PtrSz<U>() const {
   PtrSz<U> result;
-  result.data = (U*)ptr<U>();
-  result.size = sizeBytes_ / sizeof(U);
+  result.data = (U*)ptr<U>(); // 指针 
+  result.size = sizeBytes_ / sizeof(U);// 元素数量
   return result;
 }
 
 /////////////////////  Inline implementations of DeviceMemory2D ////////////////////////////////////////////
-
+// 2维 数据  针、数据大小获取
+//  cuda 中这样分配的二维数组内存保证了数组每一行首元素的地址值都按照 256 或 512 的倍数对齐，提高访问效率，
+// 但使得每行末尾元素与下一行首元素地址可能不连贯，使用指针寻址时要注意考虑尾部。
 template <class T>
 T* DeviceMemory2D::ptr(int y_arg) {
-  return (T*)((char*)data_ + y_arg * step_);
+  return (T*)((char*)data_ + y_arg * step_);// 数据首地址 考虑 CUDA内存对其齐
 }
 template <class T>
 const T* DeviceMemory2D::ptr(int y_arg) const {
@@ -70,18 +43,18 @@ const T* DeviceMemory2D::ptr(int y_arg) const {
 template <class U>
 DeviceMemory2D::operator PtrStep<U>() const {
   PtrStep<U> result;
-  result.data = (U*)ptr<U>();
-  result.step = step_;
+  result.data = (U*)ptr<U>();// 地址
+  result.step = step_;// 内存对齐参数
   return result;
 }
 
 template <class U>
 DeviceMemory2D::operator PtrStepSz<U>() const {
   PtrStepSz<U> result;
-  result.data = (U*)ptr<U>();
-  result.step = step_;
-  result.cols = colsBytes_ / sizeof(U);
-  result.rows = rows_;
+  result.data = (U*)ptr<U>();// 地址
+  result.step = step_;       // 内存对齐参数
+  result.cols = colsBytes_ / sizeof(U);// 列宽度
+  result.rows = rows_;                 // 行数量
   return result;
 }
 
