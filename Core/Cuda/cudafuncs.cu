@@ -2,6 +2,7 @@
  * This file is part of ElasticFusion.
  * 图像操作 常用函数实现
  * 高斯下采样、深度值三角变换 归一化map 深度转3D点 点转深度 拷贝 变形
+ * 2dMAP 间隔 列数行存储 x，y，z值
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -94,10 +95,10 @@ __global__ void computeVmapKernel(const PtrStepSz<float> depth,
             float vx = z * (u - cx) * fx_inv; // x，y,z三坐标值
             float vy = z * (v - cy) * fy_inv;
             float vz = z;
-
+            // 间隔 列数行存储 x，y，z值
             vmap.ptr (v                 )[u] = vx;// 第一行存 x
-            vmap.ptr (v + depth.rows    )[u] = vy;// 第二行存 y
-            vmap.ptr (v + depth.rows * 2)[u] = vz;// 第三行存 z
+            vmap.ptr (v + depth.rows    )[u] = vy;// 第二行(与第一行隔开列数个行)存 y
+            vmap.ptr (v + depth.rows * 2)[u] = vz;// 第三行(与第二行隔开列数个行)存 z
         }
         else
         {
