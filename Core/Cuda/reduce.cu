@@ -1,51 +1,8 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- * 
- * The use of the code within this file and all code within files that 
- * make up the software that is ElasticFusion is permitted for 
- * non-commercial purposes only.  The full terms and conditions that 
- * apply to the code within this file are detailed within the LICENSE.txt 
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/> 
- * unless explicitly stated.  By downloading this file you agree to 
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then 
- * please email researchcontracts.engineering@imperial.ac.uk.
- *
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
+ * 数据整合
+ * 多线程计算后，数据结果合并???
+ * SE3、SO3、ICP配置、匹配残差等 相关计算
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -89,6 +46,7 @@ __device__ __forceinline__ T __ldg(const T* ptr)
 }
 #endif
 
+// 求和????
 __inline__  __device__ JtJJtrSE3 warpReduceSum(JtJJtrSE3 val)
 {
     for(int offset = warpSize / 2; offset > 0; offset /= 2)
@@ -186,6 +144,7 @@ __global__ void reduceSum(JtJJtrSE3 * in, JtJJtrSE3 * out, int N)
     }
 }
 
+// SO3==============================================
 __inline__  __device__ JtJJtrSO3 warpReduceSum(JtJJtrSO3 val)
 {
     for(int offset = warpSize / 2; offset > 0; offset /= 2)
@@ -256,6 +215,8 @@ __global__ void reduceSum(JtJJtrSO3 * in, JtJJtrSO3 * out, int N)
     }
 }
 
+
+// 结构体================================
 struct ICPReduction
 {
     mat33 Rcurr;
@@ -280,6 +241,8 @@ struct ICPReduction
     int N;
 
     JtJJtrSE3 * out;
+    
+// =================多=====================
     cudaSurfaceObject_t outErrorSurface;
 
     PtrStep<unsigned char> lastMask;
@@ -288,19 +251,22 @@ struct ICPReduction
 //#ifdef MASK_ICP_RESIDUAL
     unsigned char maskID;
 //#endif
-
+// ======================================
+    
+  // 反向投影搜索匹配点===============================================  
     __device__ __forceinline__ bool
     search (int & x, int & y, float3& n, float3& d, float3& s) const
     {
-        float3 vcurr;
-        vcurr.x = vmap_curr.ptr (y       )[x];
+        float3 vcurr;// 3d点
+        
+        vcurr.x = vmap_curr.ptr (y       )[x]; // 2d map 3行代表x，y，z
         vcurr.y = vmap_curr.ptr (y + rows)[x];
         vcurr.z = vmap_curr.ptr (y + 2 * rows)[x];
 
-        float3 vcurr_g = Rcurr * vcurr + tcurr;
-        float3 vcurr_cp = Rprev_inv * (vcurr_g - tprev);
+        float3 vcurr_g = Rcurr * vcurr + tcurr;// 本次全局坐标点
+        float3 vcurr_cp = Rprev_inv * (vcurr_g - tprev);// 使用上一次得到的 RT反变换
 
-        int2 ukr;
+        int2 ukr;//上一次3D点对应的 2d图像点  反向投影到图像平面上，看是否在图像平面上，是否可以观察到
         ukr.x = __float2int_rn (vcurr_cp.x * intr.fx / vcurr_cp.z + intr.cx);
         ukr.y = __float2int_rn (vcurr_cp.y * intr.fy / vcurr_cp.z + intr.cy);
 
@@ -313,6 +279,7 @@ struct ICPReduction
             return false;
         }
 
+// 3D点对应的 目标类别mask误差 
 #ifdef MASK_ICP_RESIDUAL
         //if(nextMask.ptr(ukr.y)[ukr.x] != maskID){
         if(nextMask.ptr(y)[x] != maskID){
@@ -322,32 +289,35 @@ struct ICPReduction
             if(outErrorSurface) surf2Dwrite(0.0f, outErrorSurface, x*sizeof(float), y); //FIXME remove
         }
 #endif
-
+        
+        // 本次3D点反变换到 上次的 3DMAP上对应的3D点
+        // __ldg 利用缓存 
         float3 vprev_g;
         vprev_g.x = __ldg(&vmap_g_prev.ptr (ukr.y       )[ukr.x]);
         vprev_g.y = __ldg(&vmap_g_prev.ptr (ukr.y + rows)[ukr.x]);
         vprev_g.z = __ldg(&vmap_g_prev.ptr (ukr.y + 2 * rows)[ukr.x]);
-
+        
+        float3 nprev_g;// 本次反投影到上次 归一化3D点 
+        nprev_g.x =  __ldg(&nmap_g_prev.ptr (ukr.y)[ukr.x]);
+        nprev_g.y = __ldg(&nmap_g_prev.ptr (ukr.y + rows)[ukr.x]);
+        nprev_g.z = __ldg(&nmap_g_prev.ptr (ukr.y + 2 * rows)[ukr.x]);
+        
+        // 本次归一化3D点
         float3 ncurr;
         ncurr.x = nmap_curr.ptr (y)[x];
         ncurr.y = nmap_curr.ptr (y + rows)[x];
         ncurr.z = nmap_curr.ptr (y + 2 * rows)[x];
+        float3 ncurr_g = Rcurr * ncurr;// 世界坐标系下
 
-        float3 ncurr_g = Rcurr * ncurr;
 
-        float3 nprev_g;
-        nprev_g.x =  __ldg(&nmap_g_prev.ptr (ukr.y)[ukr.x]);
-        nprev_g.y = __ldg(&nmap_g_prev.ptr (ukr.y + rows)[ukr.x]);
-        nprev_g.z = __ldg(&nmap_g_prev.ptr (ukr.y + 2 * rows)[ukr.x]);
-
-        float dist = norm (vprev_g - vcurr_g);
-        float sine = norm (cross (ncurr_g, nprev_g));
+        float dist = norm (vprev_g - vcurr_g);// 利用反投影 获取的匹配点对应的误差
+        float sine = norm (cross (ncurr_g, nprev_g));// 归一化点 角度误差
 
 //        if(outErrorSurface) surf2Dwrite(isfinite(dist) ? dist : 0.0f, outErrorSurface, x*sizeof(float), y); //FIXME uncomment
 
-        n = nprev_g;
-        d = vprev_g;
-        s = vcurr_g;
+        n = nprev_g;//反投影对应的 归一化点
+        d = vprev_g;//本次反投影到上次对应的点
+        s = vcurr_g;//本次世界坐标点
 
         return (sine < angleThres && dist <= distThres && !isnan (ncurr.x) && !isnan (nprev_g.x));
     }
@@ -366,9 +336,9 @@ struct ICPReduction
 
         if(found_coresp)
         {
-            s_cp = Rprev_inv * (s_cp - tprev);
-            d_cp = Rprev_inv * (d_cp - tprev);
-            n_cp = Rprev_inv * (n_cp);
+            s_cp = Rprev_inv * (s_cp - tprev);//本次世界坐标点
+            d_cp = Rprev_inv * (d_cp - tprev);//本次反投影到上次对应的点
+            n_cp = Rprev_inv * (n_cp);        //反投影对应的 归一化点
 
             *(float3*)&row[0] = n_cp;
             *(float3*)&row[3] = cross (s_cp, n_cp);
@@ -442,7 +412,7 @@ __global__ void icpKernel(const ICPReduction icp)
 {
     icp();
 }
-
+// ICP配准============================
 void icpStep(const mat33& Rcurr,
              const float3& tcurr,
              const DeviceArray2D<float>& vmap_curr,
@@ -492,11 +462,14 @@ void icpStep(const mat33& Rcurr,
 
     icp.N = cols * rows;
     icp.out = sum;
+    
+// ======================================
     icp.outErrorSurface = icpErrorSurface;
 
     icp.maskID = maskID;
     icp.nextMask = nextMask;
-
+// =======================================
+    
     icpKernel<<<blocks, threads>>>(icp);
 
     reduceSum<<<1, MAX_THREADS>>>(sum, out, blocks);
