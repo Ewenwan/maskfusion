@@ -95,9 +95,9 @@ __global__ void computeVmapKernel(const PtrStepSz<float> depth,
             float vy = z * (v - cy) * fy_inv;
             float vz = z;
 
-            vmap.ptr (v                 )[u] = vx;
-            vmap.ptr (v + depth.rows    )[u] = vy;
-            vmap.ptr (v + depth.rows * 2)[u] = vz;
+            vmap.ptr (v                 )[u] = vx;// 第一行存 x
+            vmap.ptr (v + depth.rows    )[u] = vy;// 第二行存 y
+            vmap.ptr (v + depth.rows * 2)[u] = vz;// 第三行存 z
         }
         else
         {
@@ -113,7 +113,7 @@ void createVMap(const CameraModel& intr,
                 DeviceArray2D<float> & vmap, 
                 const float depthCutoff)
 {
-    vmap.create (depth.rows () * 3, depth.cols ());
+    vmap.create (depth.rows () * 3, depth.cols ());// 一行变3行，存x,y,z三个值
 
     dim3 block (32, 8);// 二维 线程块
     dim3 grid (1, 1, 1);// 二维线程 格
@@ -175,7 +175,7 @@ void createNMap(const DeviceArray2D<float>& vmap,
 {
     nmap.create (vmap.rows (), vmap.cols ());
 
-    int rows = vmap.rows () / 3;// ？？？？
+    int rows = vmap.rows () / 3;// 输入的map的 行数是扩大了3倍的，一行深度变3行X，Y，Z
     int cols = vmap.cols ();
 
     dim3 block (32, 8);
@@ -759,7 +759,7 @@ __global__ void projectPointsKernel(const PtrStepSz<float> depth,
     cloud.ptr(y)[x].z = z;
 }
 
-// 深度图 转 点云 
+// 深度图 转 点云， 维度不变，每个元素是一个三维变量，分别存储x，y，z
 void projectToPointCloud(const DeviceArray2D<float> & depth,
                          const DeviceArray2D<float3> & cloud,
                          CameraModel & intrinsics,
