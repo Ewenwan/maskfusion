@@ -1,7 +1,9 @@
 /*
  * This file is part of ElasticFusion.
  *  ICP配准+rgb颜色匹配 跟踪
- *
+ *  算法融合 RGB-D 图像进行位姿估计，
+ *  对于 RGB 图像通过颜色一致性约束计算位姿，
+ *  对于点云通过 ICP 算法计算位姿，ElasticFusion 融合了二者。 
  */
 
 #include "RGBDOdometry.h"
