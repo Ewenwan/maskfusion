@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -26,28 +14,35 @@ ModelProjection::ModelProjection()
       indexRenderBuffer(Resolution::getInstance().width() * ModelProjection::FACTOR,
                         Resolution::getInstance().height() * ModelProjection::FACTOR),
       sparseIndexTexture(Resolution::getInstance().width() * ModelProjection::FACTOR,
-                         Resolution::getInstance().height() * ModelProjection::FACTOR, GL_LUMINANCE32UI_EXT, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_INT),
+                         Resolution::getInstance().height() * ModelProjection::FACTOR, 
+                         GL_LUMINANCE32UI_EXT, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_INT),
       sparseVertexConfTexture(Resolution::getInstance().width() * ModelProjection::FACTOR,
-                              Resolution::getInstance().height() * ModelProjection::FACTOR, GL_RGBA32F, GL_RGBA, GL_FLOAT),
+                              Resolution::getInstance().height() * ModelProjection::FACTOR, 
+                              GL_RGBA32F, GL_RGBA, GL_FLOAT),
       sparseColorTimeTexture(Resolution::getInstance().width() * ModelProjection::FACTOR,
-                             Resolution::getInstance().height() * ModelProjection::FACTOR, GL_RGBA32F, GL_RGBA, GL_FLOAT),
+                             Resolution::getInstance().height() * ModelProjection::FACTOR,
+                             GL_RGBA32F, GL_RGBA, GL_FLOAT),
       sparseNormalRadTexture(Resolution::getInstance().width() * ModelProjection::FACTOR,
-                             Resolution::getInstance().height() * ModelProjection::FACTOR, GL_RGBA32F, GL_RGBA, GL_FLOAT),
+                             Resolution::getInstance().height() * ModelProjection::FACTOR, 
+                             GL_RGBA32F, GL_RGBA, GL_FLOAT),
       drawDepthProgram(loadProgramFromFile("empty.vert", "visualise_textures.frag", "quad.geom")),
       drawRenderBuffer(Resolution::getInstance().width(), Resolution::getInstance().height()),
-      drawTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, false),
+      drawTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), 
+                  GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, false),
       depthProgram(loadProgramFromFile("splat.vert", "depth_splat.frag")),
       depthRenderBuffer(Resolution::getInstance().width(), Resolution::getInstance().height()),
-      depthTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT,
-                   false, true),
+      depthTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), 
+                   GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT,false, true),
       combinedProgram(loadProgramFromFile("splat.vert", "combo_splat.frag")),
       combinedRenderBuffer(Resolution::getInstance().width(), Resolution::getInstance().height()),
-      splatColorTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, false,
-                        true),
-      slpatVertexConfTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA32F, GL_RGBA, GL_FLOAT, true,
-                             true),
-      slpatNormalTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA32F, GL_RGBA, GL_FLOAT, false, true),
-      slpatTimeTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_LUMINANCE16UI_EXT,
+      splatColorTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), 
+                        GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, false, true),
+      slpatVertexConfTexture(Resolution::getInstance().width(), Resolution::getInstance().height(),
+                             GL_RGBA32F, GL_RGBA, GL_FLOAT, true, true),
+      slpatNormalTexture(Resolution::getInstance().width(), Resolution::getInstance().height(),
+                         GL_RGBA32F, GL_RGBA, GL_FLOAT, false, true),
+      slpatTimeTexture(Resolution::getInstance().width(), Resolution::getInstance().height(),
+                       GL_LUMINANCE16UI_EXT,
                        GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_SHORT, false, true),
       // unaryConfTexture(Resolution::getInstance().width(),
       //                 Resolution::getInstance().height(),
@@ -56,14 +51,18 @@ ModelProjection::ModelProjection()
       //                 GL_FLOAT,
       //                 true),
       oldRenderBuffer(Resolution::getInstance().width(), Resolution::getInstance().height()),
-      oldImageTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, false,
-                      true),
-      oldVertexTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA32F, GL_LUMINANCE, GL_FLOAT, false,
-                       true),
-      oldNormalTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA32F, GL_LUMINANCE, GL_FLOAT, false,
-                       true),
-      oldTimeTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_LUMINANCE16UI_EXT, GL_LUMINANCE_INTEGER_EXT,
-                     GL_UNSIGNED_SHORT, false, true) {
+      oldImageTexture(Resolution::getInstance().width(), Resolution::getInstance().height(),
+                      GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, false, true),
+      oldVertexTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), 
+                       GL_RGBA32F, GL_LUMINANCE, GL_FLOAT, false, true),
+      oldNormalTexture(Resolution::getInstance().width(), Resolution::getInstance().height(), 
+                       GL_RGBA32F, GL_LUMINANCE, GL_FLOAT, false, true),
+      oldTimeTexture(Resolution::getInstance().width(), Resolution::getInstance().height(),
+                     GL_LUMINANCE16UI_EXT, GL_LUMINANCE_INTEGER_EXT,
+                     GL_UNSIGNED_SHORT, false, true) 
+          
+{
+          
   indexFrameBuffer.AttachColour(*sparseIndexTexture.texture);
   indexFrameBuffer.AttachColour(*sparseVertexConfTexture.texture);
   indexFrameBuffer.AttachColour(*sparseColorTimeTexture.texture);
@@ -97,8 +96,12 @@ ModelProjection::ModelProjection()
 
 ModelProjection::~ModelProjection() {}
 
-void ModelProjection::predictIndices(const Eigen::Matrix4f& pose, const int time, const OutputBuffer& model, const float depthCutoff,
-                                     const int timeDelta) {
+void ModelProjection::predictIndices(const Eigen::Matrix4f& pose, 
+                                     const int time, 
+                                     const OutputBuffer& model,
+                                     const float depthCutoff,
+                                     const int timeDelta) 
+{
   indexFrameBuffer.Bind();
 
   glPushAttrib(GL_VIEWPORT_BIT);
@@ -113,8 +116,10 @@ void ModelProjection::predictIndices(const Eigen::Matrix4f& pose, const int time
 
   Eigen::Matrix4f t_inv = pose.inverse();
 
-  Eigen::Vector4f cam(Intrinsics::getInstance().cx() * ModelProjection::FACTOR, Intrinsics::getInstance().cy() * ModelProjection::FACTOR,
-                      Intrinsics::getInstance().fx() * ModelProjection::FACTOR, Intrinsics::getInstance().fy() * ModelProjection::FACTOR);
+  Eigen::Vector4f cam(Intrinsics::getInstance().cx() * ModelProjection::FACTOR, 
+                      Intrinsics::getInstance().cy() * ModelProjection::FACTOR,
+                      Intrinsics::getInstance().fx() * ModelProjection::FACTOR, 
+                      Intrinsics::getInstance().fy() * ModelProjection::FACTOR);
 
   indexProgram->setUniform(Uniform("t_inv", t_inv));
   indexProgram->setUniform(Uniform("cam", cam));
@@ -130,10 +135,12 @@ void ModelProjection::predictIndices(const Eigen::Matrix4f& pose, const int time
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
   glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
   glDrawTransformFeedback(GL_POINTS, model.stateObject);  // RUN GPU-PASS
 
@@ -151,7 +158,8 @@ void ModelProjection::predictIndices(const Eigen::Matrix4f& pose, const int time
   glFinish();
 }
 
-void ModelProjection::renderDepth(const float depthCutoff) {
+void ModelProjection::renderDepth(const float depthCutoff) 
+{
   drawFrameBuffer.Bind();
 
   glPushAttrib(GL_VIEWPORT_BIT);
@@ -184,16 +192,23 @@ void ModelProjection::renderDepth(const float depthCutoff) {
   glFinish();
 }
 
-void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, const OutputBuffer& model, const float depthCutoff,
-                                      const float confThreshold, const int time, const int maxTime, const int timeDelta,
+void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, 
+                                      const OutputBuffer& model, 
+                                      const float depthCutoff,
+                                      const float confThreshold,
+                                      const int time, const int maxTime,
+                                      const int timeDelta,
                                       // const float unaryConfWeight,
-                                      ModelProjection::Prediction predictionType) {
+                                      ModelProjection::Prediction predictionType) 
+{
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_POINT_SPRITE);
 
-  if (predictionType == ModelProjection::ACTIVE) {
+  if (predictionType == ModelProjection::ACTIVE) 
+  {
     combinedFrameBuffer.Bind();
-  } else if (predictionType == ModelProjection::INACTIVE) {
+  } else if (predictionType == ModelProjection::INACTIVE) 
+  {
     oldFrameBuffer.Bind();
   } else {
     assert(false);
@@ -201,11 +216,15 @@ void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, const OutputB
 
   glPushAttrib(GL_VIEWPORT_BIT);
 
-  if (predictionType == ModelProjection::ACTIVE) {
+  if (predictionType == ModelProjection::ACTIVE)
+  {
     glViewport(0, 0, combinedRenderBuffer.width, combinedRenderBuffer.height);
-  } else if (predictionType == ModelProjection::INACTIVE) {
+  } 
+    else if (predictionType == ModelProjection::INACTIVE) 
+  {
     glViewport(0, 0, oldRenderBuffer.width, oldRenderBuffer.height);
-  } else {
+  }
+    else {
     assert(false);
   }
 
@@ -217,7 +236,9 @@ void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, const OutputB
 
   Eigen::Matrix4f t_inv = pose.inverse();
 
-  Eigen::Vector4f cam(Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy(), Intrinsics::getInstance().fx(),
+  Eigen::Vector4f cam(Intrinsics::getInstance().cx(), 
+                      Intrinsics::getInstance().cy(), 
+                      Intrinsics::getInstance().fx(),
                       Intrinsics::getInstance().fy());
 
   combinedProgram->setUniform(Uniform("t_inv", t_inv));
@@ -237,10 +258,12 @@ void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, const OutputB
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
 
   glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
   glDrawTransformFeedback(GL_POINTS, model.stateObject);  // RUN GPU-PASS
 
@@ -251,7 +274,8 @@ void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, const OutputB
 
   if (predictionType == ModelProjection::ACTIVE) {
     combinedFrameBuffer.Unbind();
-  } else if (predictionType == ModelProjection::INACTIVE) {
+  } else if (predictionType == ModelProjection::INACTIVE)
+  {
     oldFrameBuffer.Unbind();
   } else {
     assert(false);
@@ -267,8 +291,13 @@ void ModelProjection::combinedPredict(const Eigen::Matrix4f& pose, const OutputB
   glFinish();
 }
 
-void ModelProjection::synthesizeDepth(const Eigen::Matrix4f& pose, const OutputBuffer& model, const float depthCutoff,
-                                      const float confThreshold, const int time, const int maxTime, const int timeDelta) {
+void ModelProjection::synthesizeDepth(const Eigen::Matrix4f& pose, 
+                                      const OutputBuffer& model,
+                                      const float depthCutoff,
+                                      const float confThreshold, 
+                                      const int time, 
+                                      const int maxTime, 
+                                      const int timeDelta) {
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_POINT_SPRITE);
 
@@ -286,7 +315,9 @@ void ModelProjection::synthesizeDepth(const Eigen::Matrix4f& pose, const OutputB
 
   Eigen::Matrix4f t_inv = pose.inverse();
 
-  Eigen::Vector4f cam(Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy(), Intrinsics::getInstance().fx(),
+  Eigen::Vector4f cam(Intrinsics::getInstance().cx(), 
+                      Intrinsics::getInstance().cy(), 
+                      Intrinsics::getInstance().fx(),
                       Intrinsics::getInstance().fy());
 
   depthProgram->setUniform(Uniform("t_inv", t_inv));
@@ -305,10 +336,12 @@ void ModelProjection::synthesizeDepth(const Eigen::Matrix4f& pose, const OutputB
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
 
   glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
   glDrawTransformFeedback(GL_POINTS, model.stateObject);  // RUN GPU-PASS
 
