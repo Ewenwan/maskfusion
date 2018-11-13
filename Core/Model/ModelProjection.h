@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -34,20 +22,32 @@ class ModelProjection {
   virtual ~ModelProjection();
 
   // Project: Vertex+Confidence, RGB+Time, Normals+Radii using Points
-  void predictIndices(const Eigen::Matrix4f& pose, const int time, const OutputBuffer& model, const float depthCutoff, const int timeDelta);
+  void predictIndices(const Eigen::Matrix4f& pose, 
+                      const int time, 
+                      const OutputBuffer& model, 
+                      const float depthCutoff, 
+                      const int timeDelta);
 
   void renderDepth(const float depthCutoff);
 
   enum Prediction { ACTIVE, INACTIVE };
 
   // Project: Vertex+Confidence, RGB, Normals, time using splats
-  void combinedPredict(const Eigen::Matrix4f& pose, const OutputBuffer& model, const float depthCutoff, const float confThreshold,
-                       const int time, const int maxTime, const int timeDelta,
+  void combinedPredict(const Eigen::Matrix4f& pose, 
+                       const OutputBuffer& model, 
+                       const float depthCutoff, 
+                       const float confThreshold,
+                       const int time, const int maxTime,
+                       const int timeDelta,
                        // const float unaryConfWeight,
                        ModelProjection::Prediction predictionType);
 
-  void synthesizeDepth(const Eigen::Matrix4f& pose, const OutputBuffer& model, const float depthCutoff, const float confThreshold,
-                       const int time, const int maxTime, const int timeDelta);
+  void synthesizeDepth(const Eigen::Matrix4f& pose, 
+                       const OutputBuffer& model, 
+                       const float depthCutoff, 
+                       const float confThreshold,
+                       const int time, const int maxTime, 
+                       const int timeDelta);
 
   GPUTexture* getSparseIndexTex() { return &sparseIndexTexture; }
 
