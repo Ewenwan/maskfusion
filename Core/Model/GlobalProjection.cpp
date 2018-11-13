@@ -1,18 +1,6 @@
 /*
  * This file is part of https://github.com/martinruenz/maskfusion
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ 
  */
 
 
@@ -40,7 +28,10 @@ GlobalProjection::GlobalProjection(int w, int h)
 
 GlobalProjection::~GlobalProjection() {}
 
-void GlobalProjection::project(const std::list<std::shared_ptr<Model>>& models, int time, int maxTime, int timeDelta, float depthCutoff){
+void GlobalProjection::project(const std::list<std::shared_ptr<Model>>& models, 
+                               int time, int maxTime, 
+                               int timeDelta, float depthCutoff)
+{
 
     if(!models.size()) return;
 
@@ -63,13 +54,16 @@ void GlobalProjection::project(const std::list<std::shared_ptr<Model>>& models, 
     program->setUniform(Uniform("maxTime", maxTime));
     program->setUniform(Uniform("timeDelta", timeDelta));
 
-    for(auto& model : models){
+    for(auto& model : models)
+    {
 
         const Eigen::Matrix4f& pose = model->getPose();
         const OutputBuffer& modelBuffer = model->getModelBuffer();
 
         Eigen::Matrix4f t_inv = pose.inverse();
-        Eigen::Vector4f cam(Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy(), Intrinsics::getInstance().fx(),
+        Eigen::Vector4f cam(Intrinsics::getInstance().cx(),
+                            Intrinsics::getInstance().cy(), 
+                            Intrinsics::getInstance().fx(),
                             Intrinsics::getInstance().fy());
 
         program->setUniform(Uniform("t_inv", t_inv));
@@ -81,10 +75,12 @@ void GlobalProjection::project(const std::list<std::shared_ptr<Model>>& models, 
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                              reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
 
         glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+        glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                              reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
         glDrawTransformFeedback(GL_POINTS, modelBuffer.stateObject);  // RUN GPU-PASS
 
