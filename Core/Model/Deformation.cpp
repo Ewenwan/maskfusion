@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -27,7 +15,8 @@ Deformation::Deformation()
       count(0),
       vertices(new Eigen::Vector4f[bufferSize]),
       graphPosePoints(new std::vector<Eigen::Vector3f>),
-      lastDeformTime(0) {
+      lastDeformTime(0)
+{
   // x, y, z and init time
   memset(&vertices[0], 0, bufferSize);
 
@@ -50,7 +39,8 @@ Deformation::Deformation()
   glGenQueries(1, &countQuery);
 }
 
-Deformation::~Deformation() {
+Deformation::~Deformation() 
+{
   delete[] vertices;
   glDeleteTransformFeedbacks(1, &fid);
   glDeleteBuffers(1, &vbo);
@@ -62,19 +52,32 @@ std::vector<GraphNode*>& Deformation::getGraph() { return def.getGraph(); }
 
 void Deformation::addConstraint(const Constraint& constraint) { constraints.push_back(constraint); }
 
-void Deformation::addConstraint(const Eigen::Vector4f& src, const Eigen::Vector4f& target, const uint64_t& srcTime,
-                                const uint64_t& targetTime, const bool pinConstraints) {
+void Deformation::addConstraint(const Eigen::Vector4f& src, 
+                                const Eigen::Vector4f& target, 
+                                const uint64_t& srcTime,
+                                const uint64_t& targetTime, 
+                                const bool pinConstraints) {
   // Add the new constraint
-  constraints.push_back(Constraint(src.head(3), target.head(3), srcTime, targetTime, false));
+  constraints.push_back(Constraint(src.head(3), 
+                                   target.head(3),
+                                   srcTime, 
+                                   targetTime, false));
 
   if (pinConstraints) {
-    constraints.push_back(Constraint(target.head(3), target.head(3), targetTime, targetTime, false, true));
+    constraints.push_back(Constraint(target.head(3), 
+                                     target.head(3), 
+                                     targetTime, 
+                                     targetTime, false, true));
   }
 }
 
-bool Deformation::constrain(std::vector<Ferns::Frame*>& ferns, std::vector<float>& rawGraph, int time, const bool fernMatch,
+bool Deformation::constrain(std::vector<Ferns::Frame*>& ferns,
+                            std::vector<float>& rawGraph,
+                            int time, const bool fernMatch,
                             // std::vector<std::pair<unsigned long long int, Eigen::Matrix4f> > & poseGraph,
-                            const bool relaxGraph, std::vector<Constraint>* newRelativeCons) {
+                            const bool relaxGraph, 
+                            std::vector<Constraint>* newRelativeCons) 
+{
   if (def.isInit()) {
     std::vector<unsigned long long int> times;
     std::vector<Eigen::Matrix4f> poses;
@@ -127,7 +130,9 @@ bool Deformation::constrain(std::vector<Ferns::Frame*>& ferns, std::vector<float
 
     float error = 0;
     float meanConsError = 0;
-    bool optimised = def.optimiseGraphSparse(error, meanConsError, fernMatch, (fernMatch || relaxGraph) ? 0 : lastDeformTime);
+    bool optimised = def.optimiseGraphSparse(error, 
+                                             meanConsError, 
+                                             fernMatch, (fernMatch || relaxGraph) ? 0 : lastDeformTime);
 
     bool poseUpdated = false;
 
@@ -142,8 +147,10 @@ bool Deformation::constrain(std::vector<Ferns::Frame*>& ferns, std::vector<float
         // Target to source
         for (size_t i = 0; i < constraints.size(); i++) {
           if (!constraints.at(i).relative && !constraints.at(i).pin) {
-            newRelativeCons->push_back(Constraint(pointPool.at(constraints.at(i).srcPointPoolId), constraints.at(i).target,
-                                                  constraints.at(i).srcTime, constraints.at(i).targetTime, true));
+            newRelativeCons->push_back(Constraint(pointPool.at(constraints.at(i).srcPointPoolId),
+                                                  constraints.at(i).target,
+                                                  constraints.at(i).srcTime, 
+                                                  constraints.at(i).targetTime, true));
           }
         }
       }
@@ -179,18 +186,21 @@ bool Deformation::constrain(std::vector<Ferns::Frame*>& ferns, std::vector<float
   return false;
 }
 
-void Deformation::sampleGraphFrom(Deformation& other) {
+void Deformation::sampleGraphFrom(Deformation& other)
+{
   Eigen::Vector4f* otherVerts = other.getVertices();
 
   int sampleRate = 5;
 
   if (other.getCount() / sampleRate > def.k) {
-    for (int i = 0; i < other.getCount(); i += sampleRate) {
+    for (int i = 0; i < other.getCount(); i += sampleRate)
+    {
       Eigen::Vector3f newPoint = otherVerts[i].head<3>();
 
       graphPosePoints->push_back(newPoint);
 
-      if (i > 0 && otherVerts[i](3) < graphPoseTimes.back()) {
+      if (i > 0 && otherVerts[i](3) < graphPoseTimes.back())
+      {
         assert(false && "Assumption failed");
       }
 
@@ -204,7 +214,8 @@ void Deformation::sampleGraphFrom(Deformation& other) {
   }
 }
 
-void Deformation::sampleGraphModel(const OutputBuffer& model) {
+void Deformation::sampleGraphModel(const OutputBuffer& model)
+{
   sampleProgram->Bind();
 
   glBindBuffer(GL_ARRAY_BUFFER, model.dataBuffer);
@@ -213,10 +224,12 @@ void Deformation::sampleGraphModel(const OutputBuffer& model) {
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+  glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
   glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+  glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                        reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
   glEnable(GL_RASTERIZER_DISCARD);
 
@@ -252,7 +265,8 @@ void Deformation::sampleGraphModel(const OutputBuffer& model) {
   if ((int)count > def.k) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-    glGetBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(Eigen::Vector4f) * count, vertices);
+    glGetBufferSubData(GL_ARRAY_BUFFER, 0, 
+                       sizeof(Eigen::Vector4f) * count, vertices);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
