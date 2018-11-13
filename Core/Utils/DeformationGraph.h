@@ -2,7 +2,13 @@
  * This file is part of ElasticFusion.
  *  Deformation Graph  变形图 
  * 优化采用 deformation graph 的形式，和 DynamicFusion 中优化的方式如出一辙。 
- * 
+ *  deformation graph 由一些 nodes 组成，node 是在重建好的点均匀抽样得到，
+    抽取的 node，黑色的表示重建好的其它的点，node 的数量和重建好点的数量成正相关。
+    均匀抽取重建好的模型中的点来初始化 Deformation Graph，抽取点的个数和重建好的模型点的个数成正相关，
+    由于每次新的点添加到模型时是按照时间的先后顺序进行的，
+    均与抽取 Deformation Graph 的点也是按照时间先后顺序排列的。
+    
+    
  */
 
 #ifndef DEFORMATIONGRAPH_H_
@@ -18,22 +24,27 @@
  * This is basically and object-oriented type approach. Using an array based approach would be faster...
  */
 
-class CholeskyDecomp;
+class CholeskyDecomp;// 矩阵分解
 
-class DeformationGraph {
+class DeformationGraph 
+{
  public:
   DeformationGraph(int k, std::vector<Eigen::Vector3f>* sourceVertices);
   virtual ~DeformationGraph();
 
-  void initialiseGraph(std::vector<Eigen::Vector3f>* customGraph, std::vector<unsigned long long int>* graphTimeMap);
+  void initialiseGraph(std::vector<Eigen::Vector3f>* customGraph, 
+                       std::vector<unsigned long long int>* graphTimeMap);
 
-  void appendVertices(std::vector<unsigned long long int>* vertexTimeMap, unsigned int originalPointEnd);
+  void appendVertices(std::vector<unsigned long long int>* vertexTimeMap, 
+                      unsigned int originalPointEnd);
 
   // This clears the pose map...
-  void setPosesSeq(std::vector<unsigned long long int>* poseTimeMap, const std::vector<Eigen::Matrix4f>& poses);
+  void setPosesSeq(std::vector<unsigned long long int>* poseTimeMap, 
+                   const std::vector<Eigen::Matrix4f>& poses);
 
   // Stores a weight and node pointer for a vertex
-  class VertexWeightMap {
+  class VertexWeightMap 
+  {
    public:
     VertexWeightMap(double weight, int node) : weight(weight), node(node), relative(false) {}
 
@@ -46,15 +57,20 @@ class DeformationGraph {
      * @param list
      * @param graph
      */
-    static void sort(std::vector<VertexWeightMap>& list, std::vector<GraphNode*>& graph) {
+    static void sort(std::vector<VertexWeightMap>& list, 
+                     std::vector<GraphNode*>& graph) 
+    {
       bool done = false;
 
       int size = list.size();
 
-      while (!done) {
+      while (!done) 
+      {
         done = true;
-        for (int i = 0; i < size - 1; i++) {
-          if (graph.at(list[i].node)->id > graph.at(list[i + 1].node)->id) {
+        for (int i = 0; i < size - 1; i++) 
+        {
+          if (graph.at(list[i].node)->id > graph.at(list[i + 1].node)->id) 
+          {
             done = false;
             std::swap(list[i], list[i + 1]);
           }
@@ -75,7 +91,10 @@ class DeformationGraph {
   void applyGraphToVertices();
   void applyGraphToPoses(std::vector<Eigen::Matrix4f*>& poses);
 
-  bool optimiseGraphSparse(float& error, float& meanConsErr, const bool fernMatch, const unsigned long long int lastDeformTime);
+  bool optimiseGraphSparse(float& error, 
+                           float& meanConsErr, 
+                           const bool fernMatch,
+                           const unsigned long long int lastDeformTime);
   void resetGraph();
 
   bool isInit() { return initialised; }
@@ -114,7 +133,9 @@ class DeformationGraph {
         : vertexId(vertexId), targetPosition(targetPosition), relative(false), targetId(-1) {}
 
     Constraint(int vertexId, int targetId)
-        : vertexId(vertexId), targetPosition(Eigen::Vector3f::Zero()), relative(true), targetId(targetId) {}
+        : vertexId(vertexId), 
+          targetPosition(Eigen::Vector3f::Zero()), 
+          relative(true), targetId(targetId) {}
 
     int vertexId;
     Eigen::Vector3f targetPosition;
