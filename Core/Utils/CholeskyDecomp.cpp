@@ -1,19 +1,9 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
- *
+ * 矩阵分解，求解线性方程
+ * Cholesky分解把矩阵分解为一个下三角矩阵以及它的共轭转置矩阵的乘积（那实数界来类比的话，此分解就好像求平方根）。
+   与一般的矩阵分解求解方程的方法比较，Cholesky分解效率很高。
+   https://github.com/Ewenwan/Mathematics#cholesky%E5%88%86%E8%A7%A3
  */
 
 #include "CholeskyDecomp.h"
@@ -28,9 +18,14 @@ void CholeskyDecomp::freeFactor() {
   L = 0;
 }
 
-Eigen::VectorXd CholeskyDecomp::solve(const Jacobian& jacobian, const Eigen::VectorXd& residual, const bool firstRun) {
+Eigen::VectorXd CholeskyDecomp::solve(const Jacobian& jacobian, 
+                                      const Eigen::VectorXd& residual,
+                                      const bool firstRun) 
+{
   cholmod_sparse* At =
-      cholmod_allocate_sparse(jacobian.cols(), jacobian.rows.size(), jacobian.nonZero(), true, true, 0, CHOLMOD_REAL, &Common);
+      cholmod_allocate_sparse(jacobian.cols(), 
+                              jacobian.rows.size(), 
+                              jacobian.nonZero(), true, true, 0, CHOLMOD_REAL, &Common);
 
   int* p = (int*)At->p;
   int* i = (int*)At->i;
