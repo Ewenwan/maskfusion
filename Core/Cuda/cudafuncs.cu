@@ -3,6 +3,7 @@
  * 图像操作 常用函数实现
  * 高斯下采样、深度值三角变换 归一化map 深度转3D点 点转深度 拷贝 变形
  * 2dMAP 间隔 列数行存储 x，y，z值
+ * 归一化map: 相邻 三点 构成 两向量 叉乘向量 再归一化
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -128,7 +129,7 @@ void createVMap(const CameraModel& intr,
     cudaSafeCall (cudaGetLastError ());
 }
 
-// 归一化map===============
+// 归一化map=====相邻三点构成两向量叉乘向量再归一化==========
 __global__ void computeNmapKernel(int rows, int cols, const PtrStep<float> vmap, PtrStep<float> nmap)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
@@ -145,23 +146,23 @@ __global__ void computeNmapKernel(int rows, int cols, const PtrStep<float> vmap,
 
     float3 v00, v01, v10;
     // x
-    v00.x = vmap.ptr (v  )[u];
-    v01.x = vmap.ptr (v  )[u + 1];
+    v00.x = vmap.ptr (v  )[u];      //  [V,U]  [V,U+1]
+    v01.x = vmap.ptr (v  )[u + 1];  //  [V+1,U] 
     v10.x = vmap.ptr (v + 1)[u];
 
-    if (!isnan (v00.x) && !isnan (v01.x) && !isnan (v10.x))
+    if (!isnan (v00.x) && !isnan (v01.x) && !isnan (v10.x))// 右边点，下边点的x值都存在(不是噪点...)
     {
-        // y
+        // 对应隔列书行存储的为 y值
         v00.y = vmap.ptr (v + rows)[u];
-        v01.y = vmap.ptr (v + rows)[u + 1];
-        v10.y = vmap.ptr (v + 1 + rows)[u];
+        v01.y = vmap.ptr (v + rows)[u + 1];// 右边点
+        v10.y = vmap.ptr (v + 1 + rows)[u];// 下边点
         
         // z
         v00.z = vmap.ptr (v + 2 * rows)[u];
         v01.z = vmap.ptr (v + 2 * rows)[u + 1];
         v10.z = vmap.ptr (v + 1 + 2 * rows)[u];
 
-        float3 r = normalized (cross (v01 - v00, v10 - v00));
+        float3 r = normalized (cross (v01 - v00, v10 - v00));// 相邻 三点 构成 两向量 叉乘向量 再归一化
 
         nmap.ptr (v       )[u] = r.x;
         nmap.ptr (v + rows)[u] = r.y;
