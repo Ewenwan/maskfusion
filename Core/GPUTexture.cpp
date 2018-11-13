@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ *  
  *
  */
 
@@ -22,10 +10,18 @@
 #include "Utils/OpenGLErrorHandling.h"
 #include <opencv2/highgui/highgui.hpp>
 
-GPUTexture::GPUTexture(const int width, const int height, const GLint internalFormat, const GLenum format, const GLenum dataType,
-                       const bool drawAndSampleLinear, const bool cuda, unsigned int cudaFlags)
+GPUTexture::GPUTexture(const int width, const int height, 
+                       const GLint internalFormat, 
+                       const GLenum format, 
+                       const GLenum dataType,
+                       const bool drawAndSampleLinear,
+                       const bool cuda,
+                       unsigned int cudaFlags)
     :
-      texture(new pangolin::GlTexture(width, height, internalFormat, drawAndSampleLinear, 0, format, dataType)),
+      texture(new pangolin::GlTexture(width, height, 
+                                      internalFormat, 
+                                      drawAndSampleLinear, 0,
+                                      format, dataType)),
       draw(drawAndSampleLinear),
       width(width),
       height(height),
@@ -33,11 +29,14 @@ GPUTexture::GPUTexture(const int width, const int height, const GLint internalFo
       format(format),
       dataType(dataType),
       cudaRes(nullptr),
-      cudaSurfHandle(0) {
-    if (cuda) {
+      cudaSurfHandle(0) 
+{
+    if (cuda) 
+    {
         cudaGraphicsGLRegisterImage(&cudaRes, texture->tid, GL_TEXTURE_2D, cudaFlags);
 
-        if (cudaFlags == cudaGraphicsRegisterFlagsSurfaceLoadStore) {
+        if (cudaFlags == cudaGraphicsRegisterFlagsSurfaceLoadStore)
+        {
             assert(internalFormat == GL_R32F || internalFormat == GL_LUMINANCE32F_ARB);
             size_t numElements = size_t(width * height);
             float* data = new float[numElements];
@@ -59,7 +58,8 @@ GPUTexture::GPUTexture(const int width, const int height, const GLint internalFo
     }
 }
 
-GPUTexture::~GPUTexture() {
+GPUTexture::~GPUTexture()
+{
     if (texture) {
         delete texture;
         texture = nullptr;
@@ -73,21 +73,24 @@ GPUTexture::~GPUTexture() {
     cudaCheckError();
 }
 
-void GPUTexture::cudaMap() {
+void GPUTexture::cudaMap() 
+{
     if (!cudaIsMapped) {
         cudaGraphicsMapResources(1, &cudaRes);
         cudaIsMapped = true;
     }
 }
 
-void GPUTexture::cudaUnmap() {
+void GPUTexture::cudaUnmap() 
+{
     if (cudaIsMapped) {
         cudaGraphicsUnmapResources(1, &cudaRes);
         cudaIsMapped = false;
     }
 }
 
-cudaArray* GPUTexture::getCudaArray() {
+cudaArray* GPUTexture::getCudaArray() 
+{
     cudaArray* pArray;
     cudaGraphicsSubResourceGetMappedArray(&pArray, cudaRes, 0, 0);
     return pArray;
@@ -95,7 +98,8 @@ cudaArray* GPUTexture::getCudaArray() {
 
 const cudaSurfaceObject_t& GPUTexture::getCudaSurface() { return cudaSurfHandle; }
 
-int GPUTexture::getTypeCV() const{
+int GPUTexture::getTypeCV() const
+{
     int cvType = -1;
     if (dataType == GL_FLOAT) {
         switch (format) {
@@ -129,7 +133,8 @@ int GPUTexture::getTypeCV() const{
     return cvType;
 }
 
-cv::Mat GPUTexture::downloadTexture() {
+cv::Mat GPUTexture::downloadTexture()
+{
     // Right now only 1-/4-channel float textures are supported
     // assert(format == GL_RED || format == GL_LUMINANCE || format == GL_RGBA);
     // assert(internalFormat == GL_RGBA32F || internalFormat == GL_LUMINANCE32F_ARB || internalFormat == GL_R32F);
@@ -147,7 +152,8 @@ cv::Mat GPUTexture::downloadTexture() {
     return result;
 }
 
-void GPUTexture::downloadTexture(unsigned char *dst){
+void GPUTexture::downloadTexture(unsigned char *dst)
+{
     bool cudaMapped = cudaIsMapped;
     if (cudaMapped) cudaUnmap();
     texture->Download(dst, format, dataType);
