@@ -1,18 +1,12 @@
 /*
  * This file is part of https://github.com/martinruenz/maskfusion
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ *  MaskFusion 方法分割
+  1. 距离、凸凹性edgeMap浮点边缘图 
+  2. 阈值二值化  255/0
+  3. 腐蚀膨胀
+  4. 反向       255-x
+  5. 根据目标检测语义分割，剔除部分 不考虑的物体，例如人
+  6. opencv 联通域分析
  */
 
 #include "MfSegmentation.h"
@@ -40,9 +34,13 @@ MfSegmentation::MfSegmentation(int w, int h,
                                        std::shared_ptr<GPUTexture> textureDepthMetric,
                                        GlobalProjection* globalProjection,
                                        std::queue<FrameDataPointer>* queue) :
-    minMaskModelOverlap(0.05f), minMappedComponentSize(160), minNewMaskPixels(7000/*2000*/), REUSE_FILTERED_MAPS(true) {
+    minMaskModelOverlap(0.05f), 
+    minMappedComponentSize(160), 
+    minNewMaskPixels(7000/*2000*/), 
+    REUSE_FILTERED_MAPS(true) 
+{
 
-    floatEdgeMap.create(h, w);
+    floatEdgeMap.create(h, w);// 边缘图
     floatBuffer.create(h, w);
 
     ucharBuffer.create(h, w);
@@ -53,7 +51,8 @@ MfSegmentation::MfSegmentation(int w, int h,
     cvLabelEdges.create(h, w, CV_32S);
     semanticIgnoreMap = cv::Mat::zeros(h, w, CV_8UC1);
 
-    if(!REUSE_FILTERED_MAPS){
+    if(!REUSE_FILTERED_MAPS)
+    {
         this->textureDepthMetric = textureDepthMetric;
         this->textureRGB = textureRGB;
         this->cameraIntrinsics = cameraIntrinsics;
@@ -64,13 +63,17 @@ MfSegmentation::MfSegmentation(int w, int h,
         rgb.create(h,w);
     }
 
-    segmentationMap = std::make_shared<GPUTexture>(w, h, GL_R32F, GL_RED, GL_FLOAT, false, true, cudaGraphicsRegisterFlagsSurfaceLoadStore);
+    segmentationMap = std::make_shared<GPUTexture>(w, h, GL_R32F, 
+                                                   GL_RED, GL_FLOAT, 
+                                                   false, true, 
+                                                   cudaGraphicsRegisterFlagsSurfaceLoadStore);
     //debugMap = std::make_shared<GPUTexture>(w, h, GL_R32F, GL_RED, GL_FLOAT, true, true, cudaGraphicsRegisterFlagsSurfaceLoadStore);
     allocateModelBuffers(5);
     maskToID[255] = 255; // Ignored
     maskToID[0] = 0; // Background
 
-    if(embedMaskRCNN){
+    if(embedMaskRCNN)
+    {
         maskRCNN = std::make_unique<MaskRCNN>(queue);
         sequentialMaskRCNN = (queue == nullptr);
     }
@@ -86,46 +89,62 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
                                                            bool allowNew){
     TICK("segmentation");
 #ifdef SHOW_DEBUG_VISUALISATION
+    // 颜色
     const unsigned char colors[31][3] = {
-        {0, 0, 0},     {0, 0, 255},     {255, 0, 0},   {0, 255, 0},     {255, 26, 184},  {255, 211, 0},   {0, 131, 246},  {0, 140, 70},
-        {167, 96, 61}, {79, 0, 105},    {0, 255, 246}, {61, 123, 140},  {237, 167, 255}, {211, 255, 149}, {184, 79, 255}, {228, 26, 87},
-        {131, 131, 0}, {0, 255, 149},   {96, 0, 43},   {246, 131, 17},  {202, 255, 0},   {43, 61, 0},     {0, 52, 193},   {255, 202, 131},
-        {0, 43, 96},   {158, 114, 140}, {79, 184, 17}, {158, 193, 255}, {149, 158, 123}, {255, 123, 175}, {158, 8, 0}};
-    auto getColor = [&colors](unsigned index) -> cv::Vec3b {
+        {0, 0, 0},     {0, 0, 255},     {255, 0, 0},   {0, 255, 0},     
+        {255, 26, 184},  {255, 211, 0},   {0, 131, 246},  {0, 140, 70},
+        {167, 96, 61}, {79, 0, 105},    {0, 255, 246}, {61, 123, 140},  
+        {237, 167, 255}, {211, 255, 149}, {184, 79, 255}, {228, 26, 87},
+        {131, 131, 0}, {0, 255, 149},   {96, 0, 43},   {246, 131, 17},  
+        {202, 255, 0},   {43, 61, 0},     {0, 52, 193},   {255, 202, 131},
+        {0, 43, 96},   {158, 114, 140}, {79, 184, 17}, {158, 193, 255}, 
+        {149, 158, 123}, {255, 123, 175}, {158, 8, 0}};
+    auto getColor = [&colors](unsigned index) -> cv::Vec3b 
+    {
         return (index == 255) ? cv::Vec3b(255, 255, 255) : (cv::Vec3b)colors[index % 31];
     };
 
-    auto mapLabelToColorImage = [&getColor](cv::Mat input, bool white0 = false) -> cv::Mat {
+    auto mapLabelToColorImage = [&getColor](cv::Mat input, bool white0 = false) -> cv::Mat
+    {
         std::function<cv::Vec3b(unsigned)> getIndex;
-        auto getColorWW = [&](unsigned index) -> cv::Vec3b { return (white0 && index == 0) ? cv::Vec3b(255, 255, 255) : getColor(index); };
+        auto getColorWW = [&](unsigned index) -> cv::Vec3b 
+        { 
+            return (white0 && index == 0) ? cv::Vec3b(255, 255, 255) : getColor(index); 
+        };
         if (input.type() == CV_32SC1)
             getIndex = [&](unsigned i) -> cv::Vec3b { return getColorWW(input.at<int>(i)); };
+        
         else if (input.type() == CV_8UC1)
             getIndex = [&](unsigned i) -> cv::Vec3b { return getColorWW(input.data[i]); };
         else
             assert(0);
         cv::Mat result(input.rows, input.cols, CV_8UC3);
-        for (unsigned i = 0; i < result.total(); ++i) {
+        for (unsigned i = 0; i < result.total(); ++i) 
+        {
             ((cv::Vec3b*)result.data)[i] = getIndex(i);
         }
         return result;
     };
 
-    auto overlayMask = [&getColor](cv::Mat rgb, cv::Mat mask) -> cv::Mat {
+    auto overlayMask = [&getColor](cv::Mat rgb, cv::Mat mask) -> cv::Mat
+    {
         cv::Mat vis(rgb.rows, rgb.cols, CV_8UC3);
-        for (unsigned i = 0; i < rgb.total(); ++i) {
+        for (unsigned i = 0; i < rgb.total(); ++i) 
+        {
             vis.at<cv::Vec3b>(i) = getColor(mask.data[i]);
             vis.at<cv::Vec3b>(i) = 0.5 * vis.at<cv::Vec3b>(i) + 0.5 * rgb.at<cv::Vec3b>(i);
         }
         return vis;
     };
-    if(frame->mask.total()) {
+    if(frame->mask.total()) 
+    {
         cv::imshow("maskrcnn", overlayMask(frame->rgb, frame->mask));
         cv::waitKey(1);
     }
 #endif
 
-    if(frame->mask.total() == 0) {
+    if(frame->mask.total() == 0)
+    {
         if(!maskRCNN) throw std::runtime_error("MaskRCNN is not embedded and no masks were pre-computed.");
         else if(sequentialMaskRCNN) maskRCNN->executeSequential(frame);
     }
@@ -144,12 +163,25 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 
     // Prepare data (vertex/depth/... maps)
     TICK("segmentation-geom");
-    if(REUSE_FILTERED_MAPS){
+    if(REUSE_FILTERED_MAPS)
+    {
         Model::GPUSetup& gpu = Model::GPUSetup::getInstance();
-        computeGeometricSegmentationMap(gpu.vertex_map_tmp[0], gpu.normal_map_tmp[0], floatEdgeMap, weightDistance, weightConvexity);
-    } else {
+        
+        //利用 周围9点的 距离、凸凹性计算点的边缘属性 进而 进行分割==========================
+        computeGeometricSegmentationMap(gpu.vertex_map_tmp[0], 
+                                        gpu.normal_map_tmp[0], 
+                                        floatEdgeMap, 
+                                        weightDistance,
+                                        weightConvexity);
+    } 
+    else
+    {
         computeLookups();
-        computeGeometricSegmentationMap(vertexMap, normalMap, floatEdgeMap, weightDistance, weightConvexity);
+        computeGeometricSegmentationMap(vertexMap, 
+                                        normalMap,
+                                        floatEdgeMap, 
+                                        weightDistance, 
+                                        weightConvexity);
     }
     TICK("segmentation-geom");
 
@@ -170,7 +202,8 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
     //cv::Mat projectedDepth = globalProjection->getProjectedDepth(); // TODO remove and perform relevant steps directly on the GPU, this can save time!
 
     TICK("segmentation-DL");
-    for (unsigned char m = 0; m < models.size(); ++m,++modelItr) {
+    for (unsigned char m = 0; m < models.size(); ++m,++modelItr) 
+    {
         ModelBuffers& mBuffers = modelBuffers[m];
         auto& model = *modelItr;
 
@@ -183,7 +216,8 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         result.modelData.push_back(modelData);
         modelIDToIndex[model->getID()] = m;
     }
-    if (allowNew) {
+    if (allowNew) 
+    {
         modelIDToIndex[nextModelID] = models.size();
         modelBuffers[models.size()].modelID = nextModelID;
     }
@@ -196,17 +230,26 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 
     // Copy edge-map to segmentationMap for visualisation
     cudaArray* segmentationMapPtr = segmentationMap->getCudaArray();
-    cudaMemcpy2DToArray(segmentationMapPtr, 0, 0, edgeMap.ptr(), edgeMap.step(), edgeMap.colsBytes(), edgeMap.rows(), cudaMemcpyDeviceToDevice);
-
-    thresholdMap(edgeMap, binaryEdgeMap, threshold);
-    morphGeometricSegmentationMap(binaryEdgeMap,ucharBuffer, morphEdgeRadius, morphEdgeIterations);
-    invertMap(binaryEdgeMap,ucharBuffer);
-    ucharBuffer.download(cv8UC1Buffer.data, ucharBuffer.cols());
+    cudaMemcpy2DToArray(segmentationMapPtr, 0, 0, 
+                        edgeMap.ptr(), edgeMap.step(), 
+                        edgeMap.colsBytes(), edgeMap.rows(),
+                        cudaMemcpyDeviceToDevice);
+    // edgeMap浮点边缘图 ---> 阈值二值化  threshold --> 二值边缘图 ----> binaryEdgeMap
+    thresholdMap(edgeMap, binaryEdgeMap, threshold);// 255/0
+    
+    // 使用 1次膨胀、腐蚀 来对二值边缘图 进行 分割================
+    morphGeometricSegmentationMap(binaryEdgeMap,ucharBuffer, 
+                                  morphEdgeRadius, morphEdgeIterations);
+    // 反向======================================
+    invertMap(binaryEdgeMap,ucharBuffer);// 255-x
+    ucharBuffer.download(cv8UC1Buffer.data, ucharBuffer.cols()); // 分割最终结果为 cv8UC1Buffer
 
 #ifdef SHOW_DEBUG_VISUALISATION
     cv::Mat vis(480,640,CV_8UC3);
-    for (int i = 0; i < 640*480; ++i) {
-        float f = cv8UC1Buffer.data[i] / 255.0f;
+    for (int i = 0; i < 640*480; ++i) 
+    {
+        float f = cv8UC1Buffer.data[i] / 255.0f;// 0/1  0为不需要的
+        // 要么是 (255,255,255)  要么是 (0,0,255) ==========================================
         vis.at<cv::Vec3b>(i) = f * cv::Vec3b(255,255,255) + (1-f) * cv::Vec3b(0,0,255);
     }
     cv::imshow("Geometric edges", vis);
@@ -214,29 +257,46 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 #endif
 
     // Build use ignore map
-    if(nMasks){
-        for(size_t i=0; i<total; i++){
-            if(frame->classIDs[frame->mask.data[i]] == personClassID){
-                semanticIgnoreMap.data[i] = 255;
-                cv8UC1Buffer.data[i] = 0;
-            } else {
+    if(nMasks)
+    {
+        for(size_t i=0; i<total; i++)
+        {
+// mask 存储的为像素点 所属的类别ID ==========================================
+            
+            if(frame->classIDs[frame->mask.data[i]] == personClassID) // 过滤掉 mask为人的区域!!!!!!!!!!!!!
+            {
+                semanticIgnoreMap.data[i] = 255;// 忽略
+                cv8UC1Buffer.data[i] = 0;// 0为不需要的
+            } 
+            else 
+            {
                 semanticIgnoreMap.data[i] = 0;
             }
         }
         //cv::compare(frame->mask, cv::Scalar(...), semanticIgnoreMap, CV_CMP_EQ);
-    } else {
-        for(size_t i=0; i<total; i++){
-            if(semanticIgnoreMap.data[i]) cv8UC1Buffer.data[i] = 0;
+    }
+    else 
+    {
+        for(size_t i=0; i<total; i++)
+        {
+            if(semanticIgnoreMap.data[i]) cv8UC1Buffer.data[i] = 0;// semanticIgnoreMap255为忽略  cv8UC1Buffer0为忽略
         }
     }
 
     // Run connected-components on segmented map
     cv::Mat statsComp, centroidsComp;
+// 连通域处理函数
+// nComponents 原始联通域总数
+// 二值图像cv8UC1Buffer,   cvLabelComps二值图像标签, 
+// 和原图一样大的标记图 stats, nComponents×5的矩阵 表示每个连通区域的 外接矩形(x,y,w,h) 和 面积（pixel） 
+// centroidsComp ,          nComponents×2的矩阵 表示每个连通区域的质心
+// https://blog.csdn.net/i_chaoren/article/details/78358297
     int nComponents = cv::connectedComponentsWithStats(cv8UC1Buffer, cvLabelComps, statsComp, centroidsComp, 4);
     TOCK("segmentation-geom-post");
 
     // Todo, this can be faster! (GPU?)
-    if(removeEdges){
+    if(removeEdges)
+    {
         const bool remove_small_components = true;
         const int small_components_threshold = 50;
         const int removeEdgeIterations = 5;
@@ -246,9 +306,14 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         cv::Mat re_vis;
         frame->rgb.copyTo(re_vis);
 #endif
-        auto checkNeighbor = [&, this](int y, int x, int& n, float d){
+        auto checkNeighbor = [&, this](int y, int x, int& n, float d)
+        {
             n = this->cvLabelComps.at<int>(y,x);
-            if(n != 0 && std::fabs(frame->depth.at<float>(y,x)-d) < 0.008 && statsComp.at<int>(n, 4) > small_components_threshold) {
+            // small_components_threshold 小目标区域 阈值 ===========================
+            // 去除面积小于 small_components_threshold的连通域
+            // 深度值过小
+            if(n != 0 && std::fabs(frame->depth.at<float>(y,x)-d) < 0.008 && statsComp.at<int>(n, 4) > small_components_threshold)
+            {
 #ifdef SHOW_DEBUG_VISUALISATION
             re_vis.at<cv::Vec3b>(y,x) = cv::Vec3b(255,0,255);
 #endif
@@ -256,7 +321,8 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
             }
             return false;
         };
-        for (int i = 0; i < removeEdgeIterations; ++i) {
+        for (int i = 0; i < removeEdgeIterations; ++i) 
+        {
             cv::Mat r;
             cvLabelComps.copyTo(r);
             for (int y = 1; y < height-1; ++y) { // TODO reduce index computations here
