@@ -18,6 +18,7 @@
 #include "types.cuh"
 
 // ICP配准============================
+// reduce.cu 中实现
 void icpStep(const mat33& Rcurr,
              const float3& tcurr,
              const DeviceArray2D<float>& vmap_curr,
