@@ -1,19 +1,7 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
- *
+ * 图像Img类
+ * 分配空间，复制初始化，获取制定位置值
  */
 
 #ifndef UTILS_IMG_H_
@@ -24,29 +12,40 @@
 template <class T>
 class Img {
  public:
-  Img(const int rows, const int cols) : rows(rows), cols(cols), data(new unsigned char[rows * cols * sizeof(T)]), owned(true) {}
-
-  Img(const int rows, const int cols, T* data) : rows(rows), cols(cols), data((unsigned char*)data), owned(false) {}
-
+  // 初始化 图像 申请新内存，亲生的
+  Img(const int rows, const int cols) : 
+              rows(rows), 
+              cols(cols), 
+              data(new unsigned char[rows * cols * sizeof(T)]),
+              owned(true) {}
+  // 从其他内存 改造成图像，非亲生的
+  Img(const int rows, const int cols, T* data) : 
+              rows(rows), cols(cols), 
+              data((unsigned char*)data), // 其他内存数据
+              owned(false) {}
+ 
+  // 析构
   virtual ~Img() {
     if (owned) {
-      delete[] data;
+      delete[] data; // 要是自己的，可以做主，直接消灭
     }
   }
 
-  const int rows;
-  const int cols;
-  unsigned char* data;
-  const bool owned;
+  const int rows;// 行
+  const int cols;// 列
+  unsigned char* data;// 数据区域
+  const bool owned;   // 是否是本单位申请的
 
   template <typename V>
-  inline V& at(const int i) {
-    return ((V*)data)[i];
+  inline V& at(const int i) 
+  {// 0<i<rows*cols ============bug
+    return ((V*)data)[i];// 全局索引访问
   }
 
   template <typename V>
-  inline V& at(const int row, const int col) {
-    return ((V*)data)[cols * row + col];
+  inline V& at(const int row, const int col) // 从0开始索引
+  {
+    return ((V*)data)[cols * row + col];// 
   }
 
   template <typename V>
