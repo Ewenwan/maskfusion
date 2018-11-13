@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -38,31 +26,35 @@
 
 class IModelMatcher;
 class Model;
-typedef std::shared_ptr<Model> ModelPointer;
-typedef std::list<ModelPointer> ModelList;
+typedef std::shared_ptr<Model> ModelPointer; // 模型 智能指针
+typedef std::list<ModelPointer> ModelList;   // 模型 智能指针 列表 
 typedef ModelList::iterator ModelListIterator;
 
-struct ModelDetectionResult {
+// 模型检测结果
+struct ModelDetectionResult 
+{
     // float prob.
-    Eigen::Matrix4f pose;
+    Eigen::Matrix4f pose;// 位姿 [R，t] 4*4
     bool isGood;
 };
 
 class Model {
 public:
     // Shared data for each model
-    struct GPUSetup {
-        static GPUSetup& getInstance() {
+    struct GPUSetup
+    {
+        static GPUSetup& getInstance() 
+        {
             static GPUSetup instance;
             return instance;
         }
 
         // TODO: A lot of the attributes here should be either static or encapsulated elsewhere!
-        std::shared_ptr<Shader> initProgram;
+        std::shared_ptr<Shader> initProgram; // 颜色属性 初始化
         std::shared_ptr<Shader> drawProgram;
         std::shared_ptr<Shader> drawSurfelProgram;
 
-        // For supersample fusing
+        // For supersample fusing  超采样??
         std::shared_ptr<Shader> dataProgram;
         std::shared_ptr<Shader> updateProgram;
         std::shared_ptr<Shader> unstableProgram;
@@ -76,11 +68,11 @@ public:
         GPUTexture updateMapNormsRadii;       // We render updated normals vec3 + radii to another
 
         // Current depth / mask pyramid used for Odometry
-        std::vector<DeviceArray2D<float>> depth_tmp;
-        std::vector<DeviceArray2D<unsigned char>> mask_tmp;
+        std::vector<DeviceArray2D<float>> depth_tmp;// 深度值
+        std::vector<DeviceArray2D<unsigned char>> mask_tmp;// 掩码
 
-        std::vector<DeviceArray2D<float>> vertex_map_tmp;
-        std::vector<DeviceArray2D<float>> normal_map_tmp;
+        std::vector<DeviceArray2D<float>> vertex_map_tmp;// 2d点云  间隔三行存储xyz值
+        std::vector<DeviceArray2D<float>> normal_map_tmp;// 归一化 2d点云
 
         float outlierCoefficient = 0.9f;
 
@@ -105,46 +97,75 @@ private:
     // static std::list<unsigned char> availableIDs;
 
 public:
-    Model(unsigned char id, float confidenceThresh, bool enableFillIn = true, bool enableErrorRecording = true,
-          bool enablePoseLogging = false, MatchingType matchingType = MatchingType::Drost,
+    Model(unsigned char id, 
+          float confidenceThresh, 
+          bool enableFillIn = true, 
+          bool enableErrorRecording = true,
+          bool enablePoseLogging = false, 
+          MatchingType matchingType = MatchingType::Drost,
           float maxDepth = std::numeric_limits<float>::max());  // TODO: Default disable
     virtual ~Model();
 
-    // ----- Functions ----- //
+// ----- Functions ----- //
 
     virtual unsigned int lastCount();
     static Eigen::Vector3f rodrigues2(const Eigen::Matrix3f& matrix);  // TODO mode to a nicer place
 
-    // ----- Re-detection
+// ----- Re-detection  目标检测 
 
     virtual void buildDescription();
     virtual ModelDetectionResult detectInRegion(const FrameData& frame, const cv::Rect& rect);
 
 
-    // ----- Init
+    // ----- Init  初始化===============
 
-    virtual void initialise(const FeedbackBuffer& rawFeedback, const FeedbackBuffer& filteredFeedback);
+    virtual void initialise(const FeedbackBuffer& rawFeedback,
+                            const FeedbackBuffer& filteredFeedback);
 
-    static void generateCUDATextures(GPUTexture* depth, GPUTexture* mask, const CameraModel& intr, float depthCutoff);
+    static void generateCUDATextures(GPUTexture* depth, 
+                                     GPUTexture* mask, 
+                                     const CameraModel& intr, 
+                                     float depthCutoff);
 
-    virtual void initICP(bool doFillIn, bool frameToFrameRGB, float depthCutoff, GPUTexture* rgb);
+    virtual void initICP(bool doFillIn, 
+                         bool frameToFrameRGB, 
+                         float depthCutoff,
+                         GPUTexture* rgb);
 
     // ----- Tracking and fusion
 
 //    virtual void applyLocalTransformation(const Eigen::Isometry3f& transform);
-    virtual Eigen::Matrix4f performTracking(bool frameToFrameRGB, bool rgbOnly, float icpWeight, bool pyramid, bool fastOdom, bool so3,
-                                            float maxDepthProcessed, GPUTexture* rgb, int64_t logTimestamp, bool tryFillIn = false);
+    virtual Eigen::Matrix4f performTracking(bool frameToFrameRGB, 
+                                            bool rgbOnly, 
+                                            float icpWeight, 
+                                            bool pyramid, 
+                                            bool fastOdom, 
+                                            bool so3,
+                                            float maxDepthProcessed, 
+                                            GPUTexture* rgb, 
+                                            int64_t logTimestamp,
+                                            bool tryFillIn = false);
 
     // Compute fusion-weight based on velocity
     virtual float computeFusionWeight(float weightMultiplier) const;
 
     // Assuming the indexMap is already computed, perform fusion. 1) associate data, 2) update model
-    virtual void fuse(const int& time, GPUTexture* rgb, GPUTexture* mask, GPUTexture* depthRaw, GPUTexture* depthFiltered,
-                      const float depthCutoff, const float weightMultiplier);
+    virtual void fuse(const int& time, 
+                      GPUTexture* rgb, 
+                      GPUTexture* mask,
+                      GPUTexture* depthRaw, 
+                      GPUTexture* depthFiltered,
+                      const float depthCutoff, 
+                      const float weightMultiplier);
 
     // Always called after fuse. Copy unstable points to map.
-    virtual void clean(const int& time, std::vector<float>& graph, const int timeDelta, const float depthCutoff, const bool isFern,
-                       GPUTexture* depthFiltered, GPUTexture* mask);
+    virtual void clean(const int& time, 
+                       std::vector<float>& graph, 
+                       const int timeDelta, 
+                       const float depthCutoff, 
+                       const bool isFern,
+                       GPUTexture* depthFiltered, 
+                       GPUTexture* mask);
 
     // ...
     virtual void eraseErrorGeometry(GPUTexture* depthFiltered);
@@ -153,29 +174,60 @@ public:
 
     inline bool allowsFillIn() const { return fillIn ? true : false; }
 
-    void performFillIn(GPUTexture* rawRGB, GPUTexture* rawDepth, bool frameToFrameRGB, bool lost);
+    void performFillIn(GPUTexture* rawRGB, 
+                       GPUTexture* rawDepth, 
+                       bool frameToFrameRGB, 
+                       bool lost);
 
-    inline void combinedPredict(float depthCutoff, int time, int maxTime, int timeDelta, ModelProjection::Prediction predictionType) {
-        indexMap.combinedPredict(getPose(), getModelBuffer(), depthCutoff, getConfidenceThreshold(), time, maxTime, timeDelta, predictionType);
+    inline void combinedPredict(float depthCutoff, 
+                                int time, 
+                                int maxTime, 
+                                int timeDelta, 
+                                ModelProjection::Prediction predictionType) 
+    {
+        indexMap.combinedPredict(getPose(), 
+                                 getModelBuffer(), 
+                                 depthCutoff, 
+                                 getConfidenceThreshold(), 
+                                 time, 
+                                 maxTime, 
+                                 timeDelta, 
+                                 predictionType);
     }
 
-    inline void predictIndices(int time, float depthCutoff, int timeDelta) {
-        indexMap.predictIndices(getPose(), time, getModelBuffer(), depthCutoff, timeDelta);
+    inline void predictIndices(int time, 
+                               float depthCutoff,
+                               int timeDelta)
+    {
+        indexMap.predictIndices(getPose(), 
+                                time, 
+                                getModelBuffer(), 
+                                depthCutoff, 
+                                timeDelta);
     }
 
     // ----- Drawing ---- //
-    inline void bindRenderPointCloudShader(bool drawPoints){
+    inline void bindRenderPointCloudShader(bool drawPoints)
+    {
         if(drawPoints) gpu.drawProgram->Bind();
         else gpu.drawSurfelProgram->Bind();
     }
-    inline void unbindRenderPointCloudShader(bool drawPoints){
+    
+    inline void unbindRenderPointCloudShader(bool drawPoints)
+    {
         if(drawPoints) gpu.drawProgram->Unbind();
         else gpu.drawSurfelProgram->Unbind();
     }
 
     // Render pointcloud and compute bounding-box in model-space
-    virtual void renderPointCloud(const Eigen::Matrix4f& vp, bool drawUnstable, bool drawPoints, bool drawWindow,
-                                  int colorType, int time, int timeDelta, bool bindShaders = true);
+    virtual void renderPointCloud(const Eigen::Matrix4f& vp, 
+                                  bool drawUnstable, 
+                                  bool drawPoints, 
+                                  bool drawWindow,
+                                  int colorType, 
+                                  int time, 
+                                  int timeDelta, 
+                                  bool bindShaders = true);
     // ----- Getter ----- //
 
     inline float getConfidenceThreshold() const { return confidenceThreshold; }
@@ -260,8 +312,10 @@ public:
     };
     inline bool isLoggingPoses() const { return poseLog.capacity() > 0; }
     inline std::vector<PoseLogItem>& getPoseLog() { return poseLog; }
-    inline void updateStaticPose(const Eigen::Matrix4f& globalPose) { overridePose(initialC2Winv * globalPose); } // cam->cam_0=object_0 (cam_0->object_0 = identity)
-    inline void makeStatic(const Eigen::Matrix4f& globalPose) { initialC2Winv=pose * globalPose.inverse(); isStatic_ = true; }
+    inline void updateStaticPose(const Eigen::Matrix4f& globalPose) { 
+        overridePose(initialC2Winv * globalPose); } // cam->cam_0=object_0 (cam_0->object_0 = identity)
+    inline void makeStatic(const Eigen::Matrix4f& globalPose) { 
+        initialC2Winv=pose * globalPose.inverse(); isStatic_ = true; }
     inline void makeNonStatic(){ isStatic_ = false; }
     inline bool isNonstatic() {
         return !isStatic_;
