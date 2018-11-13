@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -31,7 +19,10 @@
 class RGBDOdometry {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  RGBDOdometry(int width, int height, float cx, float cy, float fx, float fy, unsigned char maskID = 0,
+  RGBDOdometry(int width, int height, 
+               float cx, float cy, 
+               float fx, float fy, 
+               unsigned char maskID = 0, //=========================add
                float distThresh = 0.10f,  // TODO Check, hardcoded scale?
                float angleThresh = sin(20.f * 3.14159254f / 180.f));
 
@@ -62,9 +53,15 @@ class RGBDOdometry {
   void initFirstRGB(GPUTexture* rgb);
 
   // Get relative transformation, executes optimisation
-  Eigen::Matrix4f getIncrementalTransformation(Eigen::Vector3f& trans, Eigen::Matrix<float, 3, 3, Eigen::RowMajor>& rot, const bool& rgbOnly,
-                                    const float& icpWeight, const bool& pyramid, const bool& fastOdom, const bool& so3,
-                                    const cudaSurfaceObject_t& icpErrorSurface, const cudaSurfaceObject_t& rgbErrorSurface);
+  Eigen::Matrix4f getIncrementalTransformation(Eigen::Vector3f& trans, 
+                                               Eigen::Matrix<float, 3, 3, Eigen::RowMajor>& rot,
+                                               const bool& rgbOnly,
+                                               const float& icpWeight, 
+                                               const bool& pyramid, 
+                                               const bool& fastOdom, 
+                                               const bool& so3,
+                                               const cudaSurfaceObject_t& icpErrorSurface, 
+                                               const cudaSurfaceObject_t& rgbErrorSurface);
 
   Eigen::MatrixXd getCovariance();
 
@@ -81,7 +78,9 @@ class RGBDOdometry {
   static const int NUM_PYRS = 3;
 
  private:
-  void populateRGBDData(GPUTexture* rgb, DeviceArray2D<float>* destDepths, DeviceArray2D<unsigned char>* destImages,
+  void populateRGBDData(GPUTexture* rgb, 
+                        DeviceArray2D<float>* destDepths, 
+                        DeviceArray2D<unsigned char>* destImages,
                         DeviceArray2D<unsigned char>* destMasks);
 
   DeviceArray<float> vmaps_tmp;
