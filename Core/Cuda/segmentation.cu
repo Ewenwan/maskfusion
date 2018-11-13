@@ -1,7 +1,7 @@
 /*
  * This file is part of https://github.com/martinruenz/maskfusion
  * 分割==================
- * 深度图双边滤波、距离凸凹性分割、
+ * 深度图双边滤波、阈值二值化、反向 255-x、膨胀、腐蚀、距离凸凹性分割、膨胀腐蚀分割 
  * 
  * 使用周围点 距离图像中心点 像素坐标、颜色、深度值差值作为权值。加权求和深度值后再归一化。
  *  利用 周围9点的 距离、凸凹性计算点的边缘属性 进而 进行分割
@@ -191,107 +191,7 @@ __global__ void computeGeometricSegmentation_Kernel(int w, int h,
     //surf2Dwrite(edgeness, output, x_out, y);
     output.ptr(y)[x] = fmin(1.0f, edgeness);
 }
-
-__global__ void f_erode_Kernel(int w, int h, 
-                               const PtrStepSz<float> intput, 
-                               PtrStepSz<float> output) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (y >= h || x >= w) return;
-
-    float r = intput.ptr(y)[x];
-    if (x < 1 || x >= w-1 || y < 1 || y >= h-1) output.ptr(y)[x] = r;
-
-    r = fmin(intput.ptr(y-1)[x-1], r);
-    r = fmin(intput.ptr(y-1)[x], r);
-    r = fmin(intput.ptr(y-1)[x+1], r);
-    r = fmin(intput.ptr(y)[x-1], r);
-    r = fmin(intput.ptr(y)[x+1], r);
-    r = fmin(intput.ptr(y+1)[x-1], r);
-    r = fmin(intput.ptr(y+1)[x], r);
-    r = fmin(intput.ptr(y+1)[x+1], r);
-    output.ptr(y)[x] = r;
-}
-
-__global__ void f_dilate_Kernel(int w, int h, const PtrStepSz<float> intput, PtrStepSz<float> output) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (y >= h || x >= w) return;
-
-    float r = intput.ptr(y)[x];
-    if (x < 1 || x >= w-1 || y < 1 || y >= h-1) output.ptr(y)[x] = r;
-
-    r = fmax(intput.ptr(y-1)[x-1], r);
-    r = fmax(intput.ptr(y-1)[x], r);
-    r = fmax(intput.ptr(y-1)[x+1], r);
-    r = fmax(intput.ptr(y)[x-1], r);
-    r = fmax(intput.ptr(y)[x+1], r);
-    r = fmax(intput.ptr(y+1)[x-1], r);
-    r = fmax(intput.ptr(y+1)[x], r);
-    r = fmax(intput.ptr(y+1)[x+1], r);
-    output.ptr(y)[x] = r;
-}
-
-__global__ void erode_Kernel(int w, int h, int radius, const PtrStepSz<unsigned char> intput, PtrStepSz<unsigned char> output) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (y >= h || x >= w) return;
-    const int x1 = max(x-radius,0);
-    const int y1 = max(y-radius,0);
-    const int x2 = min(x+radius, w-1);
-    const int y2 = min(y+radius, h-1);
-    output.ptr(y)[x] = 255;
-    for (int cy = y1; cy <= y2; ++cy){
-        for (int cx = x1; cx <= x2; ++cx){
-            if (cy == y && cx == x) continue;
-            if (intput.ptr(cy)[cx] == 0) {
-                output.ptr(y)[x] = 0;
-                return;
-            }
-        }
-    }
-}
-
-__global__ void dilate_Kernel(int w, int h, int radius, const PtrStepSz<unsigned char> intput, PtrStepSz<unsigned char> output) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (y >= h || x >= w) return;
-    const int x1 = max(x-radius,0);
-    const int y1 = max(y-radius,0);
-    const int x2 = min(x+radius, w-1);
-    const int y2 = min(y+radius, h-1);
-    output.ptr(y)[x] = 0;
-    for (int cy = y1; cy <= y2; ++cy){
-        for (int cx = x1; cx <= x2; ++cx){
-            if (cy == y && cx == x) continue;
-            if (intput.ptr(cy)[cx] == 255) {
-                output.ptr(y)[x] = 255;
-                return;
-            }
-        }
-    }
-}
-
-__global__ void threshold_Kernel(const PtrStepSz<float> input, PtrStepSz<unsigned char> output, float threshold) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (y >= input.rows || x >= input.cols) return;
-    output.ptr(y)[x] = input.ptr(y)[x] > threshold ? 255 : 0;
-}
-
-__global__ void invert_Kernel(const PtrStepSz<unsigned char> input, PtrStepSz<unsigned char> output) {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    if (y >= input.rows || x >= input.cols) return;
-    output.ptr(y)[x] = 255 - input.ptr(y)[x];
-}
-
-//__global__ void morphGeometricSegmentation_Kernel(int w, int h, const PtrStepSz<float> input, const PtrStepSz<float> output)
-//{
-
-//}
-
-
+// 利用 周围9点的 距离、凸凹性计算点的边缘属性 进而 进行分割
 void computeGeometricSegmentationMap(const DeviceArray2D<float> vmap,
                                      const DeviceArray2D<float> nmap,
                                      const DeviceArray2D<float> output,
@@ -309,6 +209,122 @@ void computeGeometricSegmentationMap(const DeviceArray2D<float> vmap,
     cudaSafeCall (cudaDeviceSynchronize ());
 }
 
+
+
+// 腐蚀=====周围最小值====浮点数==================
+__global__ void f_erode_Kernel(int w, int h, 
+                               const PtrStepSz<float> intput, 
+                               PtrStepSz<float> output) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (y >= h || x >= w) return;
+
+    float r = intput.ptr(y)[x];// 中心点深度值
+    if (x < 1 || x >= w-1 || y < 1 || y >= h-1) 
+    {
+      output.ptr(y)[x] = r;
+      return;// 这里一个bug==========!!!!!!!!!!!!!!!!!!!=============
+    }
+  
+  // 周围9点 深度值最小值=============================
+    r = fmin(intput.ptr(y-1)[x-1], r);
+    r = fmin(intput.ptr(y-1)[x], r);
+    r = fmin(intput.ptr(y-1)[x+1], r);
+    r = fmin(intput.ptr(y)[x-1], r);
+    r = fmin(intput.ptr(y)[x+1], r);
+    r = fmin(intput.ptr(y+1)[x-1], r);
+    r = fmin(intput.ptr(y+1)[x], r);
+    r = fmin(intput.ptr(y+1)[x+1], r);
+    output.ptr(y)[x] = r;
+}
+// 腐蚀=====周围最小值====0～255====================不过怎么感觉像是 二值化
+__global__ void erode_Kernel(int w, int h, int radius, 
+                             const PtrStepSz<unsigned char> intput, 
+                             PtrStepSz<unsigned char> output)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (y >= h || x >= w) return;
+    const int x1 = max(x-radius,0);
+    const int y1 = max(y-radius,0);
+    const int x2 = min(x+radius, w-1);
+    const int y2 = min(y+radius, h-1);
+    output.ptr(y)[x] = 255;
+    for (int cy = y1; cy <= y2; ++cy)
+    {
+        for (int cx = x1; cx <= x2; ++cx)
+        {
+            if (cy == y && cx == x) continue;
+            if (intput.ptr(cy)[cx] == 0) 
+            {
+                output.ptr(y)[x] = 0;
+                return;
+            }
+        }
+    }
+}
+
+// 膨胀====周围最大值======浮点数=============
+__global__ void f_dilate_Kernel(int w, int h, const PtrStepSz<float> intput, PtrStepSz<float> output) {
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (y >= h || x >= w) return;
+
+    float r = intput.ptr(y)[x];
+    if (x < 1 || x >= w-1 || y < 1 || y >= h-1) 
+    {
+      output.ptr(y)[x] = r;
+      return;// 这里一个bug==========!!!!!!!!!!!!!!!!!!!=============
+    }
+  // 周围9点 深度值最大值=============================
+    r = fmax(intput.ptr(y-1)[x-1], r);
+    r = fmax(intput.ptr(y-1)[x], r);
+    r = fmax(intput.ptr(y-1)[x+1], r);
+    r = fmax(intput.ptr(y)[x-1], r);
+    r = fmax(intput.ptr(y)[x+1], r);
+    r = fmax(intput.ptr(y+1)[x-1], r);
+    r = fmax(intput.ptr(y+1)[x], r);
+    r = fmax(intput.ptr(y+1)[x+1], r);
+    output.ptr(y)[x] = r;
+}
+// 膨胀====周围最大值======0～255=============不过怎么感觉像是 二值化
+__global__ void dilate_Kernel(int w, int h, int radius, 
+                              const PtrStepSz<unsigned char> intput, 
+                              PtrStepSz<unsigned char> output) 
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (y >= h || x >= w) return;
+    const int x1 = max(x-radius,0);
+    const int y1 = max(y-radius,0);
+    const int x2 = min(x+radius, w-1);
+    const int y2 = min(y+radius, h-1);
+    output.ptr(y)[x] = 0;
+    for (int cy = y1; cy <= y2; ++cy)
+    {
+        for (int cx = x1; cx <= x2; ++cx)
+        {
+            if (cy == y && cx == x) continue;
+            if (intput.ptr(cy)[cx] == 255) 
+            {
+                output.ptr(y)[x] = 255;
+                return;
+            }
+        }
+    }
+}
+
+// 阈值二值化=============================================
+__global__ void threshold_Kernel(const PtrStepSz<float> input, 
+                                 PtrStepSz<unsigned char> output, 
+                                 float threshold)
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (y >= input.rows || x >= input.cols) return;
+    output.ptr(y)[x] = input.ptr(y)[x] > threshold ? 255 : 0;
+}
+// 阈值二值化
 void thresholdMap(const DeviceArray2D<float> input,
                   const DeviceArray2D<unsigned char> output,
                   float threshold){
@@ -319,6 +335,17 @@ void thresholdMap(const DeviceArray2D<float> input,
     threshold_Kernel<<<grid, block>>>(input, output, threshold);
 }
 
+
+// 反向 255-x============================================
+__global__ void invert_Kernel(const PtrStepSz<unsigned char> input, 
+                              PtrStepSz<unsigned char> output) 
+{
+    int x = threadIdx.x + blockIdx.x * blockDim.x;
+    int y = threadIdx.y + blockIdx.y * blockDim.y;
+    if (y >= input.rows || x >= input.cols) return;
+    output.ptr(y)[x] = 255 - input.ptr(y)[x];
+}
+// 反向
 void invertMap(const DeviceArray2D<unsigned char> input,
                const DeviceArray2D<unsigned char> output){
     dim3 block (32, 8);
@@ -329,17 +356,26 @@ void invertMap(const DeviceArray2D<unsigned char> input,
 }
 
 
+//__global__ void morphGeometricSegmentation_Kernel(int w, int h, const PtrStepSz<float> input, const PtrStepSz<float> output)
+//{
+
+//}
+
+
+
+
+
+// 使用 3次膨胀、腐蚀 来分割=============================
 void morphGeometricSegmentationMap(const DeviceArray2D<float> data,
                                    const DeviceArray2D<float> buffer){
-
     const int w = data.cols();
     const int h = data.rows();
     dim3 block (32, 8);
     dim3 grid (1, 1, 1);
     grid.x = getGridDim (w, block.x);
     grid.y = getGridDim (h, block.y);
-    f_dilate_Kernel<<<grid, block>>>(w, h, data, buffer);
-    f_erode_Kernel<<<grid, block>>>(w, h, buffer, data);
+    f_dilate_Kernel<<<grid, block>>>(w, h, data, buffer);//膨胀
+    f_erode_Kernel<<<grid, block>>>(w, h, buffer, data);//腐蚀
     f_dilate_Kernel<<<grid, block>>>(w, h, data, buffer);
     f_erode_Kernel<<<grid, block>>>(w, h, buffer, data);
     f_dilate_Kernel<<<grid, block>>>(w, h, data, buffer);
