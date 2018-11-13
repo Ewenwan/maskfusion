@@ -1,18 +1,7 @@
 /*
  * This file is part of https://github.com/martinruenz/maskfusion
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ * SLIC 简单的线性迭代聚类 超像素分割算法
+    https://blog.csdn.net/u010859498/article/details/78065834
  */
 
 #include "Slic.h"
@@ -20,7 +9,10 @@
 
 std::vector<cv::Vec3b> Slic::slicColors;
 
-Slic::Slic(unsigned width, unsigned height, int spixelSize, /*float scale,*/ gSLICr::COLOR_SPACE colorSpace) {
+Slic::Slic(unsigned width, unsigned height, 
+           int spixelSize, /*float scale,*/ 
+           gSLICr::COLOR_SPACE colorSpace)
+{
   assert(spixelSize > 10 && spixelSize < 256);
 
   this->spixelSize = spixelSize;  // ceil(sqrtf(1.0f /  (scale * scale) ));
@@ -46,7 +38,8 @@ Slic::Slic(unsigned width, unsigned height, int spixelSize, /*float scale,*/ gSL
   slicInput = std::make_shared<gSLICr::UChar4Image>(slicSettings.img_size, true, true);
 }
 
-void Slic::setInputImage(const cv::Mat& inImg, bool swapRedBlue) {
+void Slic::setInputImage(const cv::Mat& inImg, bool swapRedBlue) 
+{
   assert(inImg.type() == CV_8UC3);
   assert(inImg.isContinuous());
   inputImage = inImg;
@@ -54,14 +47,16 @@ void Slic::setInputImage(const cv::Mat& inImg, bool swapRedBlue) {
   gSLICr::Vector4u* slicPtr = slicInput->GetData(MEMORYDEVICE_CPU);
   if (swapRedBlue) {
 #pragma omp parallel for
-    for (size_t index = 0; index < slicInput->dataSize; index++) {
+    for (size_t index = 0; index < slicInput->dataSize; index++) 
+    {
       slicPtr[index].r = inPtr[index][2];
       slicPtr[index].g = inPtr[index][1];
       slicPtr[index].b = inPtr[index][0];
     }
   } else {
 #pragma omp parallel for
-    for (size_t index = 0; index < slicInput->dataSize; index++) {
+    for (size_t index = 0; index < slicInput->dataSize; index++) 
+    {
       slicPtr[index].r = inPtr[index][0];
       slicPtr[index].g = inPtr[index][1];
       slicPtr[index].b = inPtr[index][2];
@@ -69,17 +64,20 @@ void Slic::setInputImage(const cv::Mat& inImg, bool swapRedBlue) {
   }
 }
 
-void Slic::processFrame(bool countSizes) {
+void Slic::processFrame(bool countSizes) 
+{
   engine->Perform_Segmentation(slicInput.get());
   slicResult = engine->Get_Seg_Mask();
   const int* slic = slicResult->GetData(MEMORYDEVICE_CPU);
-  if (countSizes) {
+  if (countSizes) 
+  {
     std::fill(spixelCounts.begin(), spixelCounts.end(), 0);
     for (unsigned index = 0; index < slicResult->dataSize; index++) spixelCounts[slic[index]]++;
   }
 }
 
-cv::Mat Slic::downsample() const {
+cv::Mat Slic::downsample() const 
+{
   assert(slicSettings.color_space == gSLICr::RGB);  // Otherwise add conversion code
 
   const int* slic = getResult();
@@ -93,10 +91,12 @@ cv::Mat Slic::downsample() const {
   for (unsigned indexBig = 0; indexBig < slicInput->dataSize; indexBig++)
     sumData[slic[indexBig]] += cv::Vec3i(inPtr[indexBig].b, inPtr[indexBig].g, inPtr[indexBig].r);
 
-  for (unsigned index = 0; index < spixelNum; index++) {
+  for (unsigned index = 0; index < spixelNum; index++) 
+  {
     int cnt = spixelCounts[index];
     int readIndex = index;
-    if (cnt == 0) {
+    if (cnt == 0) 
+    {
       readIndex = resampleEmptyIndex(index);
       cnt = spixelCounts[readIndex];
       assert(cnt > 0);
