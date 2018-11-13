@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -22,7 +10,9 @@
 Model::GPUSetup::GPUSetup()
     : initProgram(loadProgramFromFile("init_unstable.vert")),
       drawProgram(loadProgramFromFile("draw_feedback.vert", "draw_feedback.frag")),
-      drawSurfelProgram(loadProgramFromFile("draw_global_surface.vert", "draw_global_surface.frag", "draw_global_surface.geom")),
+      drawSurfelProgram(loadProgramFromFile("draw_global_surface.vert", 
+                                            "draw_global_surface.frag", 
+                                            "draw_global_surface.geom")),
       dataProgram(loadProgramFromFile("data.vert", "data.frag", "data.geom")),
       updateProgram(loadProgramFromFile("update.vert")),
       unstableProgram(loadProgramGeomFromFile("copy_unstable.vert", "copy_unstable.geom")),
@@ -38,25 +28,33 @@ Model::GPUSetup::GPUSetup()
     frameBuffer.AttachColour(*updateMapNormsRadii.texture);
     frameBuffer.AttachDepth(renderBuffer);
 
-    updateProgram->Bind();
-    int locUpdate[3] = {
-        glGetVaryingLocationNV(updateProgram->ProgramId(), "vPosition0"), glGetVaryingLocationNV(updateProgram->ProgramId(), "vColor0"),
+    updateProgram->Bind();    
+    int locUpdate[3] = 
+    {
+        glGetVaryingLocationNV(updateProgram->ProgramId(), "vPosition0"), 
+        glGetVaryingLocationNV(updateProgram->ProgramId(), "vColor0"),
         glGetVaryingLocationNV(updateProgram->ProgramId(), "vNormRad0"),
     };
+          
     glTransformFeedbackVaryingsNV(updateProgram->ProgramId(), 3, locUpdate, GL_INTERLEAVED_ATTRIBS);
     updateProgram->Unbind();
 
-    dataProgram->Bind();
-    int dataUpdate[3] = {
-        glGetVaryingLocationNV(dataProgram->ProgramId(), "vPosition0"), glGetVaryingLocationNV(dataProgram->ProgramId(), "vColor0"),
+          
+    dataProgram->Bind();    
+    int dataUpdate[3] = 
+    {
+        glGetVaryingLocationNV(dataProgram->ProgramId(), "vPosition0"),
+        glGetVaryingLocationNV(dataProgram->ProgramId(), "vColor0"),
         glGetVaryingLocationNV(dataProgram->ProgramId(), "vNormRad0"),
     };
     glTransformFeedbackVaryingsNV(dataProgram->ProgramId(), 3, dataUpdate, GL_INTERLEAVED_ATTRIBS);
     dataProgram->Unbind();
 
     unstableProgram->Bind();
-    int unstableUpdate[3] = {
-        glGetVaryingLocationNV(unstableProgram->ProgramId(), "vPosition0"), glGetVaryingLocationNV(unstableProgram->ProgramId(), "vColor0"),
+    int unstableUpdate[3] = 
+    {
+        glGetVaryingLocationNV(unstableProgram->ProgramId(), "vPosition0"), 
+        glGetVaryingLocationNV(unstableProgram->ProgramId(), "vColor0"),
         glGetVaryingLocationNV(unstableProgram->ProgramId(), "vNormRad0"),
     };
     glTransformFeedbackVaryingsNV(unstableProgram->ProgramId(), 3, unstableUpdate, GL_INTERLEAVED_ATTRIBS);
@@ -72,8 +70,10 @@ Model::GPUSetup::GPUSetup()
     // eraseProgram->Unbind();
 
     initProgram->Bind();
-    int locInit[3] = {
-        glGetVaryingLocationNV(initProgram->ProgramId(), "vPosition0"), glGetVaryingLocationNV(initProgram->ProgramId(), "vColor0"),
+    int locInit[3] = 
+    {
+        glGetVaryingLocationNV(initProgram->ProgramId(), "vPosition0"),
+        glGetVaryingLocationNV(initProgram->ProgramId(), "vColor0"),
         glGetVaryingLocationNV(initProgram->ProgramId(), "vNormRad0"),
     };
 
@@ -86,7 +86,8 @@ Model::GPUSetup::GPUSetup()
     vertex_map_tmp.resize(RGBDOdometry::NUM_PYRS);
     normal_map_tmp.resize(RGBDOdometry::NUM_PYRS);
 
-    for (int i = 0; i < RGBDOdometry::NUM_PYRS; ++i) {
+    for (int i = 0; i < RGBDOdometry::NUM_PYRS; ++i) 
+    {
         int pyr_rows = Resolution::getInstance().height() >> i;
         int pyr_cols = Resolution::getInstance().width() >> i;
 
@@ -112,8 +113,15 @@ const int Model::MAX_NODES = Model::NODE_TEXTURE_DIMENSION / 16;  // 16 floats p
 
 GPUTexture Model::deformationNodes = GPUTexture(NODE_TEXTURE_DIMENSION, 1, GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT);
 
-Model::Model(unsigned char id, float confidenceThresh, bool enableFillIn, bool enableErrorRecording, bool enablePoseLogging,
-             MatchingType matchingType, float maxDepthThesh)
+
+
+Model::Model(unsigned char id, 
+             float confidenceThresh, 
+             bool enableFillIn,
+             bool enableErrorRecording, 
+             bool enablePoseLogging,
+             MatchingType matchingType, 
+             float maxDepthThesh)
     : pose(Eigen::Matrix4f::Identity()),
       lastPose(Eigen::Matrix4f::Identity()),
       confidenceThreshold(confidenceThresh),
@@ -123,16 +131,25 @@ Model::Model(unsigned char id, float confidenceThresh, bool enableFillIn, bool e
       count(0),
       id(id),
       icpError(enableErrorRecording
-               ? std::make_unique<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_R32F, GL_RED,
-                                              GL_FLOAT, true, true, cudaGraphicsRegisterFlagsSurfaceLoadStore)
+               ? std::make_unique<GPUTexture>(Resolution::getInstance().width(), 
+                                              Resolution::getInstance().height(),
+                                              GL_R32F, GL_RED,
+                                              GL_FLOAT, true, true, 
+                                              cudaGraphicsRegisterFlagsSurfaceLoadStore)
                : nullptr),
       rgbError(
           /*enableErrorRecording ? std::make_unique<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_R32F, GL_RED, GL_FLOAT, true, true, cudaGraphicsRegisterFlagsSurfaceLoadStore, "RGB") :*/ nullptr),  // FIXME
       gpu(Model::GPUSetup::getInstance()),
-      frameToModel(Resolution::getInstance().width(), Resolution::getInstance().height(), Intrinsics::getInstance().cx(),
-                   Intrinsics::getInstance().cy(), Intrinsics::getInstance().fx(), Intrinsics::getInstance().fy(), id),
-      fillIn(enableFillIn ? std::make_unique<FillIn>() : nullptr) {
-    switch (matchingType) {
+      frameToModel(Resolution::getInstance().width(), 
+                   Resolution::getInstance().height(), 
+                   Intrinsics::getInstance().cx(),
+                   Intrinsics::getInstance().cy(),
+                   Intrinsics::getInstance().fx(), 
+                   Intrinsics::getInstance().fy(), id),
+      fillIn(enableFillIn ? std::make_unique<FillIn>() : nullptr) 
+   {
+    switch (matchingType) 
+    {
     case MatchingType::Drost:
         // removed
         break;
@@ -152,13 +169,15 @@ Model::Model(unsigned char id, float confidenceThresh, bool enableFillIn, bool e
     glGenTransformFeedbacks(1, &vbos[0].stateObject);
     glGenBuffers(1, &vbos[0].dataBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vbos[0].dataBuffer);
-    glBufferData(GL_ARRAY_BUFFER, (id == 0) ? BUFFER_SIZE_GLOBAL : BUFFER_SIZE_OBJECT, &vertices[0], GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (id == 0) ? BUFFER_SIZE_GLOBAL : BUFFER_SIZE_OBJECT, 
+                 &vertices[0], GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glGenTransformFeedbacks(1, &vbos[1].stateObject);
     glGenBuffers(1, &vbos[1].dataBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, vbos[1].dataBuffer);
-    glBufferData(GL_ARRAY_BUFFER, (id == 0) ? BUFFER_SIZE_GLOBAL : BUFFER_SIZE_OBJECT, &vertices[0], GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (id == 0) ? BUFFER_SIZE_GLOBAL : BUFFER_SIZE_OBJECT, 
+                 &vertices[0], GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     delete[] vertices;
@@ -170,17 +189,19 @@ Model::Model(unsigned char id, float confidenceThresh, bool enableFillIn, bool e
     glGenTransformFeedbacks(1, &newUnstableBuffer.stateObject);
     glGenBuffers(1, &newUnstableBuffer.dataBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, newUnstableBuffer.dataBuffer);
-    glBufferData(GL_ARRAY_BUFFER, Resolution::getInstance().numPixels() * Vertex::SIZE, &vertices[0], GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, Resolution::getInstance().numPixels() * Vertex::SIZE, 
+                 &vertices[0], GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     delete[] vertices;
 
     std::vector<Eigen::Vector2f> uv;
     for (int i = 0; i < Resolution::getInstance().width(); i++)
-        for (int j = 0; j < Resolution::getInstance().height(); j++)
-            uv.push_back(
-                        Eigen::Vector2f(float(i) / Resolution::getInstance().width() + 0.5f / Resolution::getInstance().width(),
-                                        float(j) / Resolution::getInstance().height() + 0.5f / Resolution::getInstance().height()));
+     for (int j = 0; j < Resolution::getInstance().height(); j++)
+       uv.push_back(
+        Eigen::Vector2f(
+            float(i) / Resolution::getInstance().width() + 0.5f / Resolution::getInstance().width(),
+            float(j) / Resolution::getInstance().height() + 0.5f / Resolution::getInstance().height()));
 
     uvSize = uv.size();
 
@@ -237,7 +258,8 @@ Model::~Model() {
     glDeleteBuffers(1, &newUnstableBuffer.dataBuffer);
 }
 
-void Model::initialise(const FeedbackBuffer& rawFeedback, const FeedbackBuffer& filteredFeedback) {
+void Model::initialise(const FeedbackBuffer& rawFeedback, const FeedbackBuffer& filteredFeedback)
+{
     gpu.initProgram->Bind();
 
     glBindBuffer(GL_ARRAY_BUFFER, rawFeedback.vbo);
@@ -246,12 +268,14 @@ void Model::initialise(const FeedbackBuffer& rawFeedback, const FeedbackBuffer& 
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
     glBindBuffer(GL_ARRAY_BUFFER, filteredFeedback.vbo);
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
     glEnable(GL_RASTERIZER_DISCARD);
 
@@ -284,8 +308,14 @@ void Model::initialise(const FeedbackBuffer& rawFeedback, const FeedbackBuffer& 
     glFinish();
 }
 
-void Model::renderPointCloud(const Eigen::Matrix4f& mvp, bool drawUnstable, bool drawPoints, bool drawWindow,
-                             int colorType, int time, int timeDelta, bool bindShaders) {
+void Model::renderPointCloud(const Eigen::Matrix4f& mvp,
+                             bool drawUnstable, 
+                             bool drawPoints, 
+                             bool drawWindow,
+                             int colorType, int time, 
+                             int timeDelta,
+                             bool bindShaders) 
+{
 
 
     std::shared_ptr<Shader> program = drawPoints ? gpu.drawProgram : gpu.drawSurfelProgram;
@@ -324,10 +354,12 @@ void Model::renderPointCloud(const Eigen::Matrix4f& mvp, bool drawUnstable, bool
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 1));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
     glDrawTransformFeedback(GL_POINTS, vbos[target].stateObject);  // RUN GPU-PASS
 
@@ -342,12 +374,19 @@ void Model::renderPointCloud(const Eigen::Matrix4f& mvp, bool drawUnstable, bool
     if(bindShaders) program->Unbind();
 
     const float bbscale = 0.001;
-    lastBoundingBox = Eigen::AlignedBox3f(bbscale * Eigen::Vector3f(boundingBox[0], boundingBox[1], boundingBox[2]), bbscale * Eigen::Vector3f(boundingBox[3], boundingBox[4], boundingBox[5]));
+    lastBoundingBox = Eigen::AlignedBox3f(bbscale * Eigen::Vector3f(boundingBox[0], 
+                                                                    boundingBox[1],
+                                                                    boundingBox[2]), 
+                                          bbscale * Eigen::Vector3f(boundingBox[3],
+                                                                    boundingBox[4], 
+                                                                    boundingBox[5]));
 }
 
 const OutputBuffer& Model::getModelBuffer() { return vbos[target]; }
 
-void Model::generateCUDATextures(GPUTexture* depth, GPUTexture* mask, const CameraModel& intr, float depthCutoff) {
+void Model::generateCUDATextures(GPUTexture* depth, GPUTexture* mask,
+                                 const CameraModel& intr, float depthCutoff) 
+{
     GPUSetup& gpu = GPUSetup::getInstance();
     std::vector<DeviceArray2D<float>>& depthPyr = gpu.depth_tmp;
     std::vector<DeviceArray2D<unsigned char>>& maskPyr = gpu.mask_tmp;
@@ -358,13 +397,15 @@ void Model::generateCUDATextures(GPUTexture* depth, GPUTexture* mask, const Came
 
     depth->cudaMap();
     cudaArray* depthTexturePtr = depth->getCudaArray();
-    cudaMemcpy2DFromArray(depthPyr[0].ptr(0), depthPyr[0].step(), depthTexturePtr, 0, 0, depthPyr[0].colsBytes(), depthPyr[0].rows(),
+    cudaMemcpy2DFromArray(depthPyr[0].ptr(0), depthPyr[0].step(), depthTexturePtr, 0, 0, 
+                          depthPyr[0].colsBytes(), depthPyr[0].rows(),
             cudaMemcpyDeviceToDevice);
     depth->cudaUnmap();
 
     mask->cudaMap();
     cudaArray* maskTexturePtr = mask->getCudaArray();
-    cudaMemcpy2DFromArray(maskPyr[0].ptr(0), maskPyr[0].step(), maskTexturePtr, 0, 0, maskPyr[0].colsBytes(), maskPyr[0].rows(),
+    cudaMemcpy2DFromArray(maskPyr[0].ptr(0), maskPyr[0].step(), maskTexturePtr, 0, 0,
+                          maskPyr[0].colsBytes(), maskPyr[0].rows(),
             cudaMemcpyDeviceToDevice);
     mask->cudaUnmap();
 
@@ -393,16 +434,21 @@ void Model::initICP(bool doFillIn, bool frameToFrameRGB, float depthCutoff, GPUT
 
     // WARNING initICP* must be called before initRGB*
     if (doFillIn) {
-        frameToModel.initICPModel(getFillInVertexTexture(), getFillInNormalTexture(), depthCutoff, getPose());
+        frameToModel.initICPModel(getFillInVertexTexture(), 
+                                  getFillInNormalTexture(), 
+                                  depthCutoff, getPose());
         frameToModel.initRGBModel(getFillInImageTexture());
     } else {
-        frameToModel.initICPModel(getVertexConfProjection(), getNormalProjection(), depthCutoff, getPose());
+        frameToModel.initICPModel(getVertexConfProjection(), 
+                                  getNormalProjection(), 
+                                  depthCutoff, getPose());
         frameToModel.initRGBModel(frameToFrameRGB && allowsFillIn() ? getFillInImageTexture() : getRGBProjection());
     }
 
     // frameToModel.initICP(filteredDepth, depthCutoff, mask);
     //frameToModel.initICP(gpu.depth_tmp, gpu.mask_tmp, depthCutoff);
-    frameToModel.initICP(&gpu.vertex_map_tmp, &gpu.normal_map_tmp, &gpu.mask_tmp);
+    frameToModel.initICP(&gpu.vertex_map_tmp,
+                         &gpu.normal_map_tmp, &gpu.mask_tmp);
     frameToModel.initRGB(rgb);
 
     TOCK("odomInit - Model: " + std::to_string(id));
@@ -424,8 +470,12 @@ void Model::initICP(bool doFillIn, bool frameToFrameRGB, float depthCutoff, GPUT
 //    pose.topLeftCorner(3, 3) = currentT.rotation();
 //}
 
-Eigen::Matrix4f Model::performTracking(bool frameToFrameRGB, bool rgbOnly, float icpWeight, bool pyramid, bool fastOdom, bool so3,
-                                       float maxDepthProcessed, GPUTexture* rgb, int64_t logTimestamp, bool doFillIn) {
+Eigen::Matrix4f Model::performTracking(bool frameToFrameRGB, 
+                                       bool rgbOnly, float icpWeight,
+                                       bool pyramid, bool fastOdom, bool so3,
+                                       float maxDepthProcessed, GPUTexture* rgb, 
+                                       int64_t logTimestamp, bool doFillIn) 
+{
     assert(fillIn || !doFillIn);
     lastPose = pose;
 
@@ -437,8 +487,11 @@ Eigen::Matrix4f Model::performTracking(bool frameToFrameRGB, bool rgbOnly, float
     Eigen::Vector3f transObject = pose.topRightCorner(3, 1);
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> rotObject = pose.topLeftCorner(3, 3);
 
-    Eigen::Matrix4f transform = getFrameOdometry().getIncrementalTransformation(transObject, rotObject, rgbOnly, icpWeight, pyramid, fastOdom, so3,
-                                                                                icpError->getCudaSurface(), rgbError->getCudaSurface());
+    Eigen::Matrix4f transform = getFrameOdometry().getIncrementalTransformation(transObject, rotObject,
+                                                                                rgbOnly, icpWeight, pyramid, 
+                                                                                fastOdom, so3,
+                                                                                icpError->getCudaSurface(), 
+                                                                                rgbError->getCudaSurface());
     pose.topRightCorner(3, 1) = transObject;
     pose.topLeftCorner(3, 3) = rotObject;
 
@@ -463,8 +516,13 @@ float Model::computeFusionWeight(float weightMultiplier) const {
     return weighting;
 }
 
-void Model::fuse(const int& time, GPUTexture* rgb, GPUTexture* mask, GPUTexture* depthRaw, GPUTexture* depthFiltered,
-                 const float depthCutoff, const float weightMultiplier) {
+void Model::fuse(const int& time, GPUTexture* rgb, 
+                 GPUTexture* mask, 
+                 GPUTexture* depthRaw, 
+                 GPUTexture* depthFiltered,
+                 const float depthCutoff,
+                 const float weightMultiplier)
+{
     TICK("Fuse::Data");
     // This first part does data association and computes the vertex to merge with, storing
     // in an array that sets which vertices to update by index
@@ -515,8 +573,10 @@ void Model::fuse(const int& time, GPUTexture* rgb, GPUTexture* mask, GPUTexture*
     gpu.dataProgram->setUniform(Uniform("weighting", computeFusionWeight(weightMultiplier)));
     gpu.dataProgram->setUniform(Uniform("maskID", id));
 
-    gpu.dataProgram->setUniform(Uniform("cam", Eigen::Vector4f(Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy(),
-                                                               1.0f / Intrinsics::getInstance().fx(), 1.0f / Intrinsics::getInstance().fy())));
+    gpu.dataProgram->setUniform(Uniform("cam", Eigen::Vector4f(Intrinsics::getInstance().cx(), 
+                                                               Intrinsics::getInstance().cy(),
+                                                               1.0f / Intrinsics::getInstance().fx(), 
+                                                               1.0f / Intrinsics::getInstance().fy())));
     gpu.dataProgram->setUniform(Uniform("cols", float(Resolution::getInstance().cols())));
     gpu.dataProgram->setUniform(Uniform("rows", float(Resolution::getInstance().rows())));
     gpu.dataProgram->setUniform(Uniform("scale", float(ModelProjection::FACTOR)));
@@ -599,10 +659,12 @@ void Model::fuse(const int& time, GPUTexture* rgb, GPUTexture* mask, GPUTexture*
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
     // SEE:
     // http://docs.nvidia.com/gameworks/content/gameworkslibrary/graphicssamples/opengl_samples/feedbackparticlessample.htm
@@ -647,14 +709,19 @@ void Model::fuse(const int& time, GPUTexture* rgb, GPUTexture* mask, GPUTexture*
 }
 
 void Model::clean(  // FIXME what happens with object models and ferns here?
-                    const int& time, std::vector<float>& graph, const int timeDelta, const float depthCutoff, const bool isFern, GPUTexture* depthFiltered,
-                    GPUTexture* mask) {
+                 const int& time, std::vector<float>& graph,
+                 const int timeDelta, const float depthCutoff, 
+                 const bool isFern, GPUTexture* depthFiltered,
+                 GPUTexture* mask) 
+{
     assert(graph.size() / 16 < MAX_NODES);
 
-    if (graph.size() > 0) {
+    if (graph.size() > 0) 
+    {
         // Can be optimised by only uploading new nodes with offset
         glBindTexture(GL_TEXTURE_2D, deformationNodes.texture->tid);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, graph.size(), 1, GL_LUMINANCE, GL_FLOAT, graph.data());
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, graph.size(),
+                        1, GL_LUMINANCE, GL_FLOAT, graph.data());
     }
 
     TICK("Fuse::Copy");
@@ -682,8 +749,10 @@ void Model::clean(  // FIXME what happens with object models and ferns here?
     Eigen::Matrix4f t_inv = pose.inverse();
     gpu.unstableProgram->setUniform(Uniform("t_inv", t_inv));
 
-    gpu.unstableProgram->setUniform(Uniform("cam", Eigen::Vector4f(Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy(),
-                                                                   Intrinsics::getInstance().fx(), Intrinsics::getInstance().fy())));
+    gpu.unstableProgram->setUniform(Uniform("cam", Eigen::Vector4f(Intrinsics::getInstance().cx(), 
+                                                                   Intrinsics::getInstance().cy(),
+                                                                   Intrinsics::getInstance().fx(),
+                                                                   Intrinsics::getInstance().fy())));
     gpu.unstableProgram->setUniform(Uniform("cols", float(Resolution::getInstance().cols())));
     gpu.unstableProgram->setUniform(Uniform("rows", float(Resolution::getInstance().rows())));
 
@@ -693,10 +762,12 @@ void Model::clean(  // FIXME what happens with object models and ferns here?
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, nullptr);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
     glEnable(GL_RASTERIZER_DISCARD);
 
@@ -739,10 +810,12 @@ void Model::clean(  // FIXME what happens with object models and ferns here?
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, nullptr);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
     glDrawTransformFeedback(GL_POINTS, newUnstableBuffer.stateObject);  // RUN GPU-PASS
 
@@ -791,8 +864,10 @@ void Model::eraseErrorGeometry(GPUTexture* depthFiltered) {
     Eigen::Matrix4f t_inv = pose.inverse();
     gpu.eraseProgram->setUniform(Uniform("t_inv", t_inv));
 
-    gpu.eraseProgram->setUniform(Uniform("cam", Eigen::Vector4f(Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy(),
-                                                                Intrinsics::getInstance().fx(), Intrinsics::getInstance().fy())));
+    gpu.eraseProgram->setUniform(Uniform("cam", Eigen::Vector4f(Intrinsics::getInstance().cx(), 
+                                                                Intrinsics::getInstance().cy(),
+                                                                Intrinsics::getInstance().fx(),
+                                                                Intrinsics::getInstance().fy())));
     gpu.eraseProgram->setUniform(Uniform("cols", float(Resolution::getInstance().cols())));
     gpu.eraseProgram->setUniform(Uniform("rows", float(Resolution::getInstance().rows())));
 
@@ -804,10 +879,12 @@ void Model::eraseErrorGeometry(GPUTexture* depthFiltered) {
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 0);
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, 
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f)));
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE, reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, Vertex::SIZE,
+                          reinterpret_cast<GLvoid*>(sizeof(Eigen::Vector4f) * 2));
 
     glEnable(GL_RASTERIZER_DISCARD);
 
@@ -888,7 +965,9 @@ void Model::eraseErrorGeometry(GPUTexture* depthFiltered) {
 
 unsigned int Model::lastCount() { return count; }
 
-Eigen::Vector3f Model::rodrigues2(const Eigen::Matrix3f& matrix) {
+// 罗德里格斯(Rodrigues)旋转向量与矩阵的变换 ================================
+Eigen::Vector3f Model::rodrigues2(const Eigen::Matrix3f& matrix) 
+{
     Eigen::JacobiSVD<Eigen::Matrix3f> svd(matrix, Eigen::ComputeFullV | Eigen::ComputeFullU);
     Eigen::Matrix3f R = svd.matrixU() * svd.matrixV().transpose();
 
@@ -921,7 +1000,9 @@ Eigen::Vector3f Model::rodrigues2(const Eigen::Matrix3f& matrix) {
             ry *= theta;
             rz *= theta;
         }
-    } else {
+    } 
+    else 
+    {
         double vth = 1 / (2 * s);
         vth *= theta;
         rx *= vth;
@@ -931,16 +1012,19 @@ Eigen::Vector3f Model::rodrigues2(const Eigen::Matrix3f& matrix) {
     return Eigen::Vector3d(rx, ry, rz).cast<float>();
 }
 
-void Model::buildDescription() {
+void Model::buildDescription() 
+{
     if (modelMatcher) modelMatcher->buildModelDescription(this);
 }
 
-ModelDetectionResult Model::detectInRegion(const FrameData& frame, const cv::Rect& rect) {
+ModelDetectionResult Model::detectInRegion(const FrameData& frame, const cv::Rect& rect) 
+{
     if (modelMatcher) return modelMatcher->detectInRegion(frame, rect);
     return ModelDetectionResult({Eigen::Matrix4f(), false});
 }
 
-Model::SurfelMap Model::downloadMap(int buffer) {
+Model::SurfelMap Model::downloadMap(int buffer) 
+{
     SurfelMap result;
     result.numPoints = count;
     result.data = std::make_unique<std::vector<Eigen::Vector4f>>();
@@ -973,7 +1057,8 @@ Model::SurfelMap Model::downloadMap(int buffer) {
     return result;
 }
 
-void Model::performFillIn(GPUTexture* rawRGB, GPUTexture* rawDepth, bool frameToFrameRGB, bool lost) {
+void Model::performFillIn(GPUTexture* rawRGB, GPUTexture* rawDepth, 
+                          bool frameToFrameRGB, bool lost) {
     if (fillIn) {
         TICK("FillIn");
         fillIn->vertex(getVertexConfProjection(), rawDepth, lost);
