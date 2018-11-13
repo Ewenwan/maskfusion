@@ -1,50 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
  * 
- * The use of the code within this file and all code within files that 
- * make up the software that is ElasticFusion is permitted for 
- * non-commercial purposes only.  The full terms and conditions that 
- * apply to the code within this file are detailed within the LICENSE.txt 
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/> 
- * unless explicitly stated.  By downloading this file you agree to 
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then 
- * please email researchcontracts.engineering@imperial.ac.uk.
- *
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
  *
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
@@ -61,6 +17,7 @@
 #include "containers/device_array.hpp"
 #include "types.cuh"
 
+// ICP配准============================
 void icpStep(const mat33& Rcurr,
              const float3& tcurr,
              const DeviceArray2D<float>& vmap_curr,
@@ -70,19 +27,21 @@ void icpStep(const mat33& Rcurr,
              const CameraModel& intr,
              const DeviceArray2D<float>& vmap_g_prev,
              const DeviceArray2D<float>& nmap_g_prev,
-             float distThres,
-             float angleThres,
+             float distThres,// 距离阈值
+             float angleThres,// 角度阈值
              DeviceArray<JtJJtrSE3> & sum,
              DeviceArray<JtJJtrSE3> & out,
              float * matrixA_host,
              float * vectorB_host,
              float * residual_host,
              int threads,
-             int blocks,
+             int blocks,           
+// =============== 比 ElasticFusion多的地方==============
              const cudaSurfaceObject_t& icpErrorSurface,
              const DeviceArray2D<unsigned char>& nextMask,
              unsigned char maskID);
 
+// 
 void rgbStep(const DeviceArray2D<DataTerm> & corresImg,
              const float & sigma,
              const DeviceArray2D<float3> & cloud,
@@ -97,7 +56,7 @@ void rgbStep(const DeviceArray2D<DataTerm> & corresImg,
              float * vectorB_host,
              int threads,
              int blocks);
-
+// 
 void so3Step(const DeviceArray2D<unsigned char> & lastImage,
              const DeviceArray2D<unsigned char> & nextImage,
              const mat33 & imageBasis,
@@ -111,6 +70,7 @@ void so3Step(const DeviceArray2D<unsigned char> & lastImage,
              int threads,
              int blocks);
 
+// 残差=================================
 void computeRgbResidual(const float & minScale,
                         const DeviceArray2D<short> & dIdx,
                         const DeviceArray2D<short> & dIdy,
@@ -118,8 +78,10 @@ void computeRgbResidual(const float & minScale,
                         const DeviceArray2D<float> & nextDepth,
                         const DeviceArray2D<unsigned char> & lastImage,
                         const DeviceArray2D<unsigned char> & nextImage,
+                    // ===============
                         const DeviceArray2D<unsigned char> & lastMask,
                         const DeviceArray2D<unsigned char> & nextMask,
+                    // ===============
                         DeviceArray2D<DataTerm> & corresImg,
                         DeviceArray<int2> & sumResidual,
                         const float maxDepthDelta,
@@ -129,48 +91,52 @@ void computeRgbResidual(const float & minScale,
                         int & count,
                         int threads,
                         int blocks,
+                    // ===============
                         const cudaSurfaceObject_t& icpErrorSurface,
                         unsigned char maskID);
 
+// 深度图 创建 3D点 地图============================
+// 一行深度变3行X，Y，Z=============================
 void createVMap(const CameraModel& intr,
                 const DeviceArray2D<float> & depth,
                 DeviceArray2D<float> & vmap,
                 const float depthCutoff);
-
+// 3D点 地图归一化，减去均值，除方差==================
 void createNMap(const DeviceArray2D<float>& vmap,
                 DeviceArray2D<float>& nmap);
-
+// 3D点地图 刚体变换================================
 void tranformMaps(const DeviceArray2D<float>& vmap_src,
                   const DeviceArray2D<float>& nmap_src,
                   const mat33& Rmat,
                   const float3& tvec,
                   DeviceArray2D<float>& vmap_dst,
                   DeviceArray2D<float>& nmap_dst);
-
+// 复制3D点云map地图
 void copyMaps(const DeviceArray<float>& vmap_src,
               const DeviceArray<float>& nmap_src,
               DeviceArray2D<float>& vmap_dst,
               DeviceArray2D<float>& nmap_dst);
-
+// 改变map形状
 void resizeVMap(const DeviceArray2D<float>& input,
                 DeviceArray2D<float>& output);
-
+// 改变归一化map形状
 void resizeNMap(const DeviceArray2D<float>& input,
                 DeviceArray2D<float>& output);
-
+// 彩色图转会赌徒
 void imageBGRToIntensity(cudaArray * cuArr,
                          DeviceArray2D<unsigned char> & dst);
-
+// 2Dmap 转深度值
 void verticesToDepth(DeviceArray<float>& vmap_src,
                      DeviceArray2D<float> & dst,
                      float cutOff);
 
+// 2D深度值 转 3D地图
 // 2D to 3D: input is depth image, output is cloud
 void projectToPointCloud(const DeviceArray2D<float> & depth,
                          const DeviceArray2D<float3> & cloud,
                          CameraModel & intrinsics,
                          const int & level);
-
+// 金字塔下采样
 void pyrDown(const DeviceArray2D<unsigned short> & src,
              DeviceArray2D<unsigned short> & dst);
 
@@ -178,16 +144,18 @@ void pyrDown(const DeviceArray2D<unsigned short> & src,
 //FIXME
 //void testCuda(cudaSurfaceObject_t surface);
 
+// 5×5高斯核下采样 浮点数
 void pyrDownGaussF(const DeviceArray2D<float> & src,
                    DeviceArray2D<float> & dst);
 
+// 5×5高斯核下采样 0～255
 void pyrDownUcharGauss(const DeviceArray2D<unsigned char>& src,
                        DeviceArray2D<unsigned char> & dst);
 
 //void pyrDown2(const DeviceArray2D<unsigned char> & src,
 //             DeviceArray2D<unsigned char> & dst);
 
-
+// 计算图像水平和垂直梯度
 void computeDerivativeImages(DeviceArray2D<unsigned char>& src,
                              DeviceArray2D<short>& dx,
                              DeviceArray2D<short>& dy);
