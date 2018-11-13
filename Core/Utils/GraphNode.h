@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 图 节点
  *
  */
 
@@ -23,14 +11,14 @@
 
 class GraphNode {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW // EIGEN 矩阵对其=======
   GraphNode() {}
 
-  int id;
-  Eigen::Vector3f position;
-  Eigen::Matrix3f rotation;
-  Eigen::Vector3f translation;
-  std::vector<int> neighbours;
+  int id;// 身份证号码
+  Eigen::Vector3f position;// 位置
+  Eigen::Matrix3f rotation;// 姿态 3×3 旋转矩阵
+  Eigen::Vector3f translation;// 平移向量t
+  std::vector<int> neighbours;// 邻居点id序列
   bool enabled;
 };
 
