@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -31,7 +19,8 @@
 
 #include "Buffers.h"
 
-class Deformation {
+class Deformation 
+{
  public:
   Deformation();
   virtual ~Deformation();
@@ -46,7 +35,10 @@ class Deformation {
 
   class Constraint {
    public:
-    Constraint(const Eigen::Vector3f& src, const Eigen::Vector3f& target, const uint64_t& srcTime, const uint64_t& targetTime,
+    Constraint(const Eigen::Vector3f& src, 
+               const Eigen::Vector3f& target,
+               const uint64_t& srcTime,
+               const uint64_t& targetTime,
                const bool relative, const bool pin = false)
         : src(src),
           target(target),
@@ -67,14 +59,20 @@ class Deformation {
     int tarPointPoolId;
   };
 
-  void addConstraint(const Eigen::Vector4f& src, const Eigen::Vector4f& target, const uint64_t& srcTime, const uint64_t& targetTime,
+  void addConstraint(const Eigen::Vector4f& src, 
+                     const Eigen::Vector4f& target, 
+                     const uint64_t& srcTime, 
+                     const uint64_t& targetTime,
                      const bool pinConstraints);
 
   void addConstraint(const Constraint& constraint);
 
-  bool constrain(std::vector<Ferns::Frame*>& ferns, std::vector<float>& rawGraph, int time, const bool fernMatch,
+  bool constrain(std::vector<Ferns::Frame*>& ferns,
+                 std::vector<float>& rawGraph,
+                 int time, const bool fernMatch,
                  /*std::vector<std::pair<unsigned long long int, Eigen::Matrix4f> > & poseGraph,*/
-                 const bool relaxGraph, std::vector<Constraint>* newRelativeCons = 0);
+                 const bool relaxGraph, 
+                 std::vector<Constraint>* newRelativeCons = 0);
 
   Eigen::Vector4f* getVertices() { return vertices; }
 
