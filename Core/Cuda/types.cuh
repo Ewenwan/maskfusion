@@ -1,51 +1,7 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- * 
- * The use of the code within this file and all code within files that 
- * make up the software that is ElasticFusion is permitted for 
- * non-commercial purposes only.  The full terms and conditions that 
- * apply to the code within this file are detailed within the LICENSE.txt 
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/> 
- * unless explicitly stated.  By downloading this file you agree to 
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then 
- * please email researchcontracts.engineering@imperial.ac.uk.
- *
- * Software License Agreement (BSD License)
- *
- *  Copyright (c) 2011, Willow Garage, Inc.
- *  All rights reserved.
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Willow Garage, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *
+ * 自定义的基本结构
+ * 3×3矩阵 3维向量 相机模型 CameraModel 雅可比SE3 
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
@@ -58,18 +14,20 @@
 #include <Eigen/Core>
 #endif
 
+//  3×3矩阵 3个 float3 实现
 struct mat33
 {
     mat33() {}
 
 #if !defined(__CUDACC__)
+    // 可由 Eigen::Matrix 拷贝过来
     mat33(Eigen::Matrix<float, 3, 3, Eigen::RowMajor> & e)
     {
         memcpy(data, e.data(), sizeof(mat33));
     }
 #endif
 
-    float3 data[3];
+    float3 data[3];// Eigen下的 float3
 };
 
 struct DataTerm
@@ -80,6 +38,7 @@ struct DataTerm
     bool valid;
 };
 
+// 相机模型 CameraModel
 struct CameraModel
 {
     float fx, fy, cx, cy;
@@ -90,7 +49,8 @@ struct CameraModel
     CameraModel(float fx_, float fy_, float cx_, float cy_)
      : fx(fx_), fy(fy_), cx(cx_), cy(cy_)
     {}
-
+    
+    // 金字塔下采样尺度 对应的内参数
     CameraModel operator()(int level) const
     {
         int div = 1 << level;
@@ -98,6 +58,7 @@ struct CameraModel
     }
 };
 
+// 雅可比SE3================
 struct JtJJtrSE3
 {
     //27 floats for each product (27)
@@ -151,6 +112,7 @@ struct JtJJtrSE3
     }
 };
 
+// 雅可比SO3================
 struct JtJJtrSO3
 {
     //9 floats for each product (9)
