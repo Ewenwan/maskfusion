@@ -18,7 +18,11 @@
 
 #include "RGBDOdometry.h"
 
-RGBDOdometry::RGBDOdometry(int width, int height, float cx, float cy, float fx, float fy, unsigned char mask, float distThresh,
+RGBDOdometry::RGBDOdometry(int width, int height, 
+                           float cx, float cy, 
+                           float fx, float fy, 
+                           unsigned char mask, 
+                           float distThresh,
                            float angleThresh)
     : lastICPError(0),
       lastICPCount(width * height),
@@ -40,7 +44,8 @@ RGBDOdometry::RGBDOdometry(int width, int height, float cx, float cy, float fx, 
       cy(cy),
       fx(fx),
       fy(fy),
-      maskID(mask) {
+      maskID(mask) 
+{
     sumDataSE3.create(MAX_THREADS);
     outDataSE3.create(1);
     sumResidualRGB.create(MAX_THREADS);
@@ -48,15 +53,17 @@ RGBDOdometry::RGBDOdometry(int width, int height, float cx, float cy, float fx, 
     sumDataSO3.create(MAX_THREADS);
     outDataSO3.create(1);
 
-    for (int i = 0; i < NUM_PYRS; i++) {
+    for (int i = 0; i < NUM_PYRS; i++) // 金字塔下采样 个层级尺寸
+    {
         int2 nextDim = {height >> i, width >> i};
         pyrDims.push_back(nextDim);
     }
 
-    for (int i = 0; i < NUM_PYRS; i++) {
-        lastDepth[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
-        lastImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
-        lastMask[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
+    for (int i = 0; i < NUM_PYRS; i++) 
+    {
+        lastDepth[i].create(pyrDims.at(i).x, pyrDims.at(i).y);// 深度图
+        lastImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);// 灰度图像
+        lastMask[i].create(pyrDims.at(i).x, pyrDims.at(i).y); // 掩码图
 
         nextDepth[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
         nextImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
@@ -64,32 +71,33 @@ RGBDOdometry::RGBDOdometry(int width, int height, float cx, float cy, float fx, 
 
         lastNextImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
 
-        nextdIdx[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
-        nextdIdy[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
+        nextdIdx[i].create(pyrDims.at(i).x, pyrDims.at(i).y);// 灰度水平梯度
+        nextdIdy[i].create(pyrDims.at(i).x, pyrDims.at(i).y);// 灰度垂直梯度
 
-        pointClouds[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
+        pointClouds[i].create(pyrDims.at(i).x, pyrDims.at(i).y);// 3D点云图
 
         corresImg[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
     }
 
-    intr.cx = cx;
+    intr.cx = cx;// 相机内参数
     intr.cy = cy;
     intr.fx = fx;
     intr.fy = fy;
 
     iterations.reserve(NUM_PYRS);
 
-    vmaps_g_prev_.resize(NUM_PYRS);
-    nmaps_g_prev_.resize(NUM_PYRS);
+    vmaps_g_prev_.resize(NUM_PYRS);// 2d 地图       xyz间隔行存放
+    nmaps_g_prev_.resize(NUM_PYRS);// 2d 归一化地图
 
     //  vmaps_curr_.resize(NUM_PYRS);
     //  nmaps_curr_.resize(NUM_PYRS);
 
-    for (int i = 0; i < NUM_PYRS; ++i) {
+    for (int i = 0; i < NUM_PYRS; ++i) 
+    {
         int pyr_rows = height >> i;
         int pyr_cols = width >> i;
 
-        vmaps_g_prev_[i].create(pyr_rows * 3, pyr_cols);
+        vmaps_g_prev_[i].create(pyr_rows * 3, pyr_cols);//  2d 地图 xyz间隔行存放 行数扩大3倍
         nmaps_g_prev_[i].create(pyr_rows * 3, pyr_cols);
 
         //    vmaps_curr_[i].create(pyr_rows * 3, pyr_cols);
@@ -119,7 +127,8 @@ RGBDOdometry::~RGBDOdometry() {}
 
 void RGBDOdometry::initICP(const std::vector<DeviceArray2D<float>>* vertexMapPyramid,
                            const std::vector<DeviceArray2D<float>>* normalMapPyramid,
-                           const std::vector<DeviceArray2D<unsigned char>>* prevMaskPyramid){
+                           const std::vector<DeviceArray2D<unsigned char>>* prevMaskPyramid)
+{
     this->vertexMapPyramid = vertexMapPyramid;
     this->normalMapPyramid = normalMapPyramid;
     this->prevMaskPyramid = prevMaskPyramid;
@@ -150,13 +159,17 @@ void RGBDOdometry::initICP(const std::vector<DeviceArray2D<float>>* vertexMapPyr
 
 
 
-void RGBDOdometry::initICPModel(GPUTexture* predictedVertices, GPUTexture* predictedNormals, const float depthCutoff,
-                                const Eigen::Matrix4f& modelPose) {
+void RGBDOdometry::initICPModel(GPUTexture* predictedVertices, 
+                                GPUTexture* predictedNormals, 
+                                const float depthCutoff,
+                                const Eigen::Matrix4f& modelPose)
+{
     cudaArray* textPtr;
 
     predictedVertices->cudaMap();
     textPtr = predictedVertices->getCudaArray();
-    cudaMemcpyFromArray(vmaps_tmp.ptr(), textPtr, 0, 0, vmaps_tmp.sizeBytes(), cudaMemcpyDeviceToDevice);
+    cudaMemcpyFromArray(vmaps_tmp.ptr(), 
+                        textPtr, 0, 0, vmaps_tmp.sizeBytes(), cudaMemcpyDeviceToDevice);
     predictedVertices->cudaUnmap();
 
     predictedNormals->cudaMap();
@@ -166,7 +179,8 @@ void RGBDOdometry::initICPModel(GPUTexture* predictedVertices, GPUTexture* predi
 
     copyMaps(vmaps_tmp, nmaps_tmp, vmaps_g_prev_[0], nmaps_g_prev_[0]);
 
-    for (int i = 1; i < NUM_PYRS; ++i) {
+    for (int i = 1; i < NUM_PYRS; ++i)
+    {
         resizeVMap(vmaps_g_prev_[i - 1], vmaps_g_prev_[i]);
         resizeNMap(nmaps_g_prev_[i - 1], nmaps_g_prev_[i]);
     }
@@ -178,16 +192,25 @@ void RGBDOdometry::initICPModel(GPUTexture* predictedVertices, GPUTexture* predi
     float3 device_tcam = *reinterpret_cast<float3*>(tcam.data());
 
     for (int i = 0; i < NUM_PYRS; ++i) {
-        tranformMaps(vmaps_g_prev_[i], nmaps_g_prev_[i], device_Rcam, device_tcam, vmaps_g_prev_[i], nmaps_g_prev_[i]);
+        tranformMaps(vmaps_g_prev_[i], 
+                     nmaps_g_prev_[i], 
+                     device_Rcam, 
+                     device_tcam, 
+                     vmaps_g_prev_[i],
+                     nmaps_g_prev_[i]);
     }
 
     cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::populateRGBDData(GPUTexture* rgb, DeviceArray2D<float>* destDepths, DeviceArray2D<unsigned char>* destImages,
-                                    DeviceArray2D<unsigned char>* destMasks) {
+void RGBDOdometry::populateRGBDData(GPUTexture* rgb, 
+                                    DeviceArray2D<float>* destDepths, 
+                                    DeviceArray2D<unsigned char>* destImages,
+                                    DeviceArray2D<unsigned char>* destMasks) 
+{
     verticesToDepth(vmaps_tmp, destDepths[0], maxDepthRGB);
-
+    
+  // 深度图 5×5高斯下采样=====================
     for (int i = 0; i + 1 < NUM_PYRS; i++) pyrDownGaussF(destDepths[i], destDepths[i + 1]);
 
     rgb->cudaMap();
@@ -195,7 +218,8 @@ void RGBDOdometry::populateRGBDData(GPUTexture* rgb, DeviceArray2D<float>* destD
     imageBGRToIntensity(textPtr, destImages[0]);
     rgb->cudaUnmap();
 
-    for (int i = 0; i + 1 < NUM_PYRS; i++) {
+    for (int i = 0; i + 1 < NUM_PYRS; i++) 
+    {
         pyrDownUcharGauss(destImages[i], destImages[i + 1]);
         pyrDownUcharGauss(destMasks[i], destMasks[i + 1]);
     }
@@ -225,14 +249,15 @@ void RGBDOdometry::initFirstRGB(GPUTexture* rgb) {
 }
 
 Eigen::Matrix4f RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f& trans,
-                                                             Eigen::Matrix<float, 3, 3, Eigen::RowMajor>& rot,
-                                                             const bool& rgbOnly,
-                                                             const float& icpWeight,
-                                                             const bool& pyramid,
-                                                             const bool& fastOdom,
-                                                             const bool& so3,
-                                                             const cudaSurfaceObject_t& icpErrorSurface,
-                                                             const cudaSurfaceObject_t& rgbErrorSurface) {
+                                                           Eigen::Matrix<float, 3, 3, Eigen::RowMajor>& rot,
+                                                           const bool& rgbOnly,
+                                                           const float& icpWeight,
+                                                           const bool& pyramid,
+                                                           const bool& fastOdom,
+                                                           const bool& so3,
+                                                           const cudaSurfaceObject_t& icpErrorSurface,
+                                                           const cudaSurfaceObject_t& rgbErrorSurface)
+{
     bool icp = !rgbOnly && icpWeight > 0;
     bool rgb = rgbOnly || icpWeight < 100;
 
@@ -245,19 +270,24 @@ Eigen::Matrix4f RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f& tran
     if (rgb) {
         for (int i = 0; i < NUM_PYRS; i++) {
             // sobelGaussian(nextImage[i], nextdIdx[i], nextdIdy[i]);
+          // 计算灰度图像 的 水平和 垂直梯度====================================
             computeDerivativeImages(nextImage[i], nextdIdx[i], nextdIdy[i]);
         }
     }
 
-    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> resultR = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Identity();
+    Eigen::Matrix<double, 3, 3, Eigen::RowMajor> resultR = 
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Identity();
 
     if (so3) {
         int pyramidLevel = 2;
 
-        Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R_lr = Eigen::Matrix<float, 3, 3, Eigen::RowMajor>::Identity();
+        Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R_lr = 
+           Eigen::Matrix<float, 3, 3, Eigen::RowMajor>::Identity();
 
-        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Zero();
-
+      // 相机内参数
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> K = 
+           Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Zero();
+      
         K(0, 0) = intr(pyramidLevel).fx;
         K(1, 1) = intr(pyramidLevel).fy;
         K(0, 2) = intr(pyramidLevel).cx;
@@ -267,9 +297,11 @@ Eigen::Matrix4f RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f& tran
         float lastError = std::numeric_limits<float>::max() / 2;
         float lastCount = std::numeric_limits<float>::max() / 2;
 
-        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> lastResultR = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Identity();
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> lastResultR = 
+            Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Identity();
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++) 
+        {
             Eigen::Matrix<float, 3, 3, Eigen::RowMajor> jtj;
             Eigen::Matrix<float, 3, 1> jtr;
 
@@ -289,15 +321,25 @@ Eigen::Matrix4f RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f& tran
             float residual[2];
 
             TICK("so3Step");
-            so3Step(lastNextImage[pyramidLevel], nextImage[pyramidLevel], imageBasis, kinv, krlr, sumDataSO3, outDataSO3, jtj.data(), jtr.data(),
-                    &residual[0], GPUConfig::getInstance().so3StepThreads, GPUConfig::getInstance().so3StepBlocks);
+            so3Step(lastNextImage[pyramidLevel], 
+                    nextImage[pyramidLevel], 
+                    imageBasis, kinv, krlr, 
+                    sumDataSO3, 
+                    outDataSO3, 
+                    jtj.data(),
+                    jtr.data(),
+                    &residual[0], 
+                    GPUConfig::getInstance().so3StepThreads, 
+                    GPUConfig::getInstance().so3StepBlocks);
+          
             TOCK("so3Step");
 
             lastSO3Error = sqrt(residual[0]) / residual[1];
             lastSO3Count = residual[1];
 
             // Converged
-            if (lastSO3Error < lastError && fabs(lastError - lastSO3Count) < 0.001) {
+            if (lastSO3Error < lastError && fabs(lastError - lastSO3Count) < 0.001) 
+            {
                 break;
             } else if (lastSO3Error > lastError + 0.001) {  // Diverging
                 lastSO3Error = lastError;
@@ -360,7 +402,8 @@ Eigen::Matrix4f RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f& tran
         lastRGBError = std::numeric_limits<float>::max();
 
         // Optimization iterations
-        for (int j = 0; j < iterations[i]; j++) {
+        for (int j = 0; j < iterations[i]; j++) 
+        {
             Eigen::Matrix<double, 4, 4, Eigen::RowMajor> Rt = resultRt.inverse();
 
             Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R = Rt.topLeftCorner(3, 3);
