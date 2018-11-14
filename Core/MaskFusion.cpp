@@ -293,7 +293,7 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
     // 上传 深度图 到 GPU 内存============================上传RGB到GPU内存============================
     textureDepthMetric->texture->Upload((float*)frame->depth.data,
                                         GL_LUMINANCE, GL_FLOAT);
-    filterDepth();// 深度图滤波  750行============
+    filterDepth();// 深度图滤波  750行+ ============
 
     // if(frame.mask) {
     //    // Use ground-truth segmentation if provided (TODO: Overwritten at the moment)
@@ -303,7 +303,7 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
     {
         // If the support for multiple objects is deactivated, segment everything as background (static scene).
         const long size = Resolution::getInstance().width() * Resolution::getInstance().height();
-        unsigned char* data = new unsigned char[size];
+        unsigned char* data = new unsigned char[size];// 480×640
         memset(data, 0, size);
         textureMask->texture->Upload(data, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_BYTE);
         delete[] data;
@@ -313,23 +313,31 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 
   
     // First run
-    if (tick == 1) {
+    if (tick == 1) // 第一帧=================
+    {
         computeFeedbackBuffers();
         globalModel->initialise(*feedbackBuffers[FeedbackBuffer::RAW], 
                                 *feedbackBuffers[FeedbackBuffer::FILTERED]);
-        globalModel->getFrameOdometry().initFirstRGB(textureRGB.get());
+        globalModel->getFrameOdometry().initFirstRGB(textureRGB.get());// 跟踪 里程记 信息
     } 
-  else 
-  {
+    else // 后面的帧==========================
+    {
         bool trackingOk = true;
 
         // Regular execution, false if pose is provided by user
-        if (bootstrap || !inPose) {
-            Model::generateCUDATextures(textureDepthMetricFiltered.get(), textureMask.get(), cudaIntrinsics, depthCutoff);
+        if (bootstrap || !inPose) 
+        {
+            Model::generateCUDATextures(textureDepthMetricFiltered.get(), 
+                                        textureMask.get(), 
+                                        cudaIntrinsics, depthCutoff);
 
             TICK("odom");
 
-            ModelListIterator itr = models.begin();
+            ModelListIterator itr = models.begin();// 模型列表
+// 以模型为单位进行跟踪======================!!!!!!!!!! 重要思想=========================
+          // 跟踪模型===========================================
+          
+          // 静态场景跟踪，相机位姿===========
             (*itr)->performTracking(frameToFrameRGB,
                                     rgbOnly, icpWeight,
                                     pyramid,
@@ -341,7 +349,8 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
                                     requiresFillIn(*itr));
 
 
-            for(++itr;itr!=models.end();itr++){
+            for(++itr;itr!=models.end();itr++)
+            {
                 ModelPointer& mp = (*itr);
                 if(!(*itr)->isNonstatic() && !trackAllModels){
                     mp->updateStaticPose(globalModel->getPose()); // cam->cam_0=object_0 (cam_0->object_0 = identity)
