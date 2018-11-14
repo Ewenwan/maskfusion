@@ -1,21 +1,27 @@
+
+# cmake 版本要求
 cmake_minimum_required(VERSION 3.0.2)
 
 # policy to export a different link interface
+# 对于一个指定的策略，那些依赖于旧行为的工程，通过设置策略的状态为OLD，可以禁止策略的警告。
 cmake_policy(SET CMP0022 OLD)
 
+# 项目名称
 project(libmaskfusion)
 
 message("Evaluating Core/CMAKE")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 
-## External packages
-find_package(CUDA REQUIRED)
+## 外部依赖库  External packages
+find_package(CUDA REQUIRED) # GPU
+# 大型稀疏矩阵运算库SuiteSparse
 find_package(SuiteSparse REQUIRED)
 find_package(OpenCV 3.1 REQUIRED)
-find_package(OpenMP)
+find_package(OpenMP)# 多线程
 find_package(PythonLibs)
 
+# 目标检测语义分割
 set(MASKFUSION_MASK_RCNN_DIR ${CMAKE_SOURCE_DIR}/deps/Mask_RCNN CACHE STRING "Location of MaskRCNN")
 set(MASKFUSION_PYTHON_VE_PATH "" CACHE STRING "Python virtual environment to use")
 configure_file("Segmentation/MaskRCNN/MaskRCNN.py.in" "${CMAKE_CURRENT_BINARY_DIR}/../GUI/MaskRCNN.py")
@@ -42,11 +48,13 @@ if(SHOW_DEBUG_VISUALISATION)
     add_definitions(-DSHOW_DEBUG_VISUALISATION)
 endif()
 
-## Directories
+## Directories 条件随机场 库=========
 set(DENSECRF_DIR "${CMAKE_SOURCE_DIR}/deps/densecrf")
 set(DENSECRF_LIBRARY_DIRS "${DENSECRF_DIR}/build/src/")
 set(DENSECRF_INCLUDE_DIRS "${DENSECRF_DIR}/include")
 set(DENSECRF_LIBRARIES densecrf)
+
+# 可视化颜色=========================
 set(maskfusion_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Shaders" CACHE PATH "Where the shaders live")
 
 message("Using: ")
@@ -58,18 +66,20 @@ message("Using PYTHON_LIBRARIES:  ${PYTHON_LIBRARIES} ")
 message("Using PYTHON_INCLUDE_DIRS:  ${PYTHON_INCLUDE_DIRS} ")
 message("=======")
 
-## Includes
-include_directories(${Pangolin_INCLUDE_DIRS})
-include_directories(${CUDA_INCLUDE_DIRS})
-include_directories(${EIGEN_INCLUDE_DIRS})
-include_directories(${SUITESPARSE_INCLUDE_DIRS})
-include_directories(${DENSECRF_INCLUDE_DIRS})
-include_directories(${PCL_INCLUDE_DIRS})
-include_directories(${OpenCV_INCLUDE_DIRS})
+## Includes  库文件
+include_directories(${Pangolin_INCLUDE_DIRS}) # Pangolin 可视化界面
+include_directories(${CUDA_INCLUDE_DIRS})     # CUDA  GPU
+include_directories(${EIGEN_INCLUDE_DIRS})    # eigen 矩阵运算
+include_directories(${SUITESPARSE_INCLUDE_DIRS})# 大型稀疏矩阵运算库SuiteSparse
+include_directories(${DENSECRF_INCLUDE_DIRS}) # 条件随机场
+include_directories(${PCL_INCLUDE_DIRS})      # PCL 点云库
+include_directories(${OpenCV_INCLUDE_DIRS})   # opencv 2d图像处理等
 
-link_directories(${PCL_LIBRARY_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})      # 链接库
 link_directories(${DENSECRF_LIBRARY_DIRS})
 
+
+# 项目源文件=========================================================
 file(GLOB srcs *.cpp)
 file(GLOB model_srcs Model/*.cpp)
 file(GLOB utils_srcs Utils/*.cpp)
@@ -104,6 +114,8 @@ else(CMAKE_BUILD_TYPE MATCHES Release)
     add_compile_options(-Wno-maybe-uninitialized)
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
+
+# 添加动态链接库=============================
 add_library(${PROJECT_NAME} SHARED
             ${srcs}
             ${model_srcs}
@@ -115,6 +127,7 @@ add_library(${PROJECT_NAME} SHARED
             ${segmentation}
 )
 
+# 库依赖的文件
 target_include_directories(${PROJECT_NAME} PUBLIC
                             ${CMAKE_CURRENT_SOURCE_DIR}
                             ${GSLICR_DIR}/gSLICr_Lib
@@ -126,7 +139,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
                             ${BOOST_INCLUDE_DIRS}
                             ${PYTHON_INCLUDE_DIRS}
 )
-
+# 动态链接时
 target_link_libraries(${PROJECT_NAME} PRIVATE
                       ${DENSECRF_LIBRARIES}
                       ${Eigen_LIBRARIES}
@@ -137,7 +150,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
                       gSLICr_lib
                       ${PYTHON_LIBRARIES}
 )
-
+# 会把库附加在LINK_INTERFACE_LIBRARIES以及LINK_INTERFACE_LIBRARIES在不同配置下的等价目标属性，而不是用这些库去链接。
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_INTERFACE_LIBRARIES "")
 
 
