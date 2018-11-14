@@ -1,18 +1,6 @@
 /*
  * This file is part of https://github.com/martinruenz/maskfusion
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ * 帧 数据结构====================================================
  */
 
 #pragma once
@@ -22,24 +10,28 @@
 #include <utility>
 #include <memory>
 
-struct FrameData {
+struct FrameData 
+{
   // Allocate memory for rgb and depth image
-  void allocateRGBD(unsigned width, unsigned height) {
-    rgb = cv::Mat(height, width, CV_8UC3);
-    depth = cv::Mat(height, width, CV_32FC1);
+  void allocateRGBD(unsigned width, unsigned height) 
+  {
+    rgb = cv::Mat(height, width, CV_8UC3);// 0～255 RGB 数据
+    depth = cv::Mat(height, width, CV_32FC1);// float 数据 深度值
   }
 
   int64_t timestamp = 0;
   int64_t index = 0;
 
-  cv::Mat mask;   // External segmentation (optional!), CV_8UC1
-  cv::Mat rgb;    // RGB data, CV_8UC3
-  cv::Mat depth;  // Depth data, CV_32FC1
+  cv::Mat mask;   // 语义分割mask 0~255 External segmentation (optional!), CV_8UC1
+  cv::Mat rgb;    // 色彩 RGB data, CV_8UC3
+  cv::Mat depth;  // 深度值   Depth data, CV_32FC1
 
-  std::vector<int> classIDs; // It is assumed that mask-labels are consecutive and that classIDs[mask.data[i]] provides the class for each pixel in the mask.
-  std::vector<cv::Rect> rois;
+  std::vector<int> classIDs;  // 目标类别id 序列 It is assumed that mask-labels are consecutive and that classIDs[mask.data[i]] provides the class for each pixel in the mask.
+  std::vector<cv::Rect> rois; // 目标 框 序列
 
-  void flipColors() {
+  // RGB 变 BGR===========================
+  void flipColors() 
+  {
 #pragma omp parallel for
     for (unsigned i = 0; i < rgb.total() * 3; i += 3) std::swap(rgb.data[i + 0], rgb.data[i + 2]);
   }
