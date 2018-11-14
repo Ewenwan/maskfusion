@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -23,7 +11,9 @@
 #include "Utils/Resolution.h"
 #include "Utils/Intrinsics.h"
 #include "Utils/Stopwatch.h"
+// =====================
 #include "Callbacks.h"
+// =====================
 #include "Shaders/Shaders.h"
 #include "Shaders/ComputePack.h"
 #include "Shaders/FeedbackBuffer.h"
@@ -37,20 +27,37 @@
 #include "FrameData.h"
 #include "Segmentation/Segmentation.h"
 
-#include <list>
+#include <list> //=============
 #include <iomanip>
-#include <memory>
+#include <memory>//=======
 #include <pangolin/gl/glcuda.h>
 
 class MaskFusion {
  public:
-  MaskFusion(int timeDelta = 200, int countThresh = 35000, float errThresh = 5e-05, float covThresh = 1e-05,
-           bool closeLoops = true, bool iclnuim = false, bool reloc = false, float photoThresh = 115,
-           float initConfidenceGlobal = 4, float initConfidenceObject = 2, float depthCut = 3, float icpThresh = 10,
-           bool fastOdom = false, float fernThresh = 0.3095, bool so3 = true, bool frameToFrameRGB = false,
-           unsigned modelSpawnOffset = 20, Model::MatchingType matchingType = Model::MatchingType::Drost,
-           Segmentation::Method segmentationMethod = Segmentation::Method::MASK_FUSION,
-           const std::string& exportDirectory = "", bool exportSegmentationResults = false, bool usePrecomputedMasksOnly = false, unsigned frameQueueSize = 0);
+  MaskFusion(int timeDelta = 200, int countThresh = 35000, 
+             float errThresh = 5e-05, float covThresh = 1e-05,
+             bool closeLoops = true, bool iclnuim = false, 
+             bool reloc = false, float photoThresh = 115,
+             //====================
+             float initConfidenceGlobal = 4,//
+             float initConfidenceObject = 2,//
+             //====================
+             float depthCut = 3, 
+             float icpThresh = 10,
+             bool fastOdom = false,
+             float fernThresh = 0.3095,
+             bool so3 = true, 
+             bool frameToFrameRGB = false,
+             // ===============================
+             unsigned modelSpawnOffset = 20, //
+             Model::MatchingType matchingType = Model::MatchingType::Drost,//
+             Segmentation::Method segmentationMethod = Segmentation::Method::MASK_FUSION,//
+             const std::string& exportDirectory = "", //
+             bool exportSegmentationResults = false, //
+             bool usePrecomputedMasksOnly = false, //
+             unsigned frameQueueSize = 0//
+             // =================================
+            );
 
   virtual ~MaskFusion();
 
