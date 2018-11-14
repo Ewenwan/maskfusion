@@ -1,18 +1,6 @@
 /*
  * This file is part of ElasticFusion.
- *
- * Copyright (C) 2015 Imperial College London
- *
- * The use of the code within this file and all code within files that
- * make up the software that is ElasticFusion is permitted for
- * non-commercial purposes only.  The full terms and conditions that
- * apply to the code within this file are detailed within the LICENSE.txt
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
- * unless explicitly stated.  By downloading this file you agree to
- * comply with these terms.
- *
- * If you wish to use any of this code for commercial purposes then
- * please email researchcontracts.engineering@imperial.ac.uk.
+ * 
  *
  */
 
@@ -21,18 +9,41 @@
 
 //#define LOG_TICKS
 
-MaskFusion::MaskFusion(int timeDelta, int countThresh, float errThresh, float covThresh, bool closeLoops,
-                   bool iclnuim, bool reloc, float photoThresh, float initConfidenceGlobal,
-                   float initConfidenceObject, float depthCut, float icpThresh, bool fastOdom,
-                   float fernThresh, bool so3, bool frameToFrameRGB, unsigned modelSpawnOffset,
-                   Model::MatchingType matchingType, Segmentation::Method segmentationMethod,
-                   const std::string& exportDirectory, bool exportSegmentationResults, bool usePrecomputedMasksOnly, unsigned frameQueueSize)
-    : globalProjection(Resolution::getInstance().width(), Resolution::getInstance().height()),
+MaskFusion::MaskFusion(int timeDelta, 
+                       int countThresh, 
+                       float errThresh, 
+                       float covThresh, 
+                       bool closeLoops,
+                       bool iclnuim, 
+                       bool reloc, 
+                       float photoThresh, 
+                       float initConfidenceGlobal,
+                       float initConfidenceObject, 
+                       float depthCut, 
+                       float icpThresh, 
+                       bool fastOdom,
+                       float fernThresh, 
+                       bool so3, 
+                       bool frameToFrameRGB, 
+                       unsigned modelSpawnOffset,
+                       Model::MatchingType matchingType, 
+                       Segmentation::Method segmentationMethod,
+                       const std::string& exportDirectory, 
+                       bool exportSegmentationResults,
+                       bool usePrecomputedMasksOnly,
+                       unsigned frameQueueSize)
+  
+    : globalProjection(Resolution::getInstance().width(), 
+                       Resolution::getInstance().height()),
       modelMatchingType(matchingType),
       newModelListeners(0),
       inactiveModelListeners(0),
-      modelToModel(Resolution::getInstance().width(), Resolution::getInstance().height(), Intrinsics::getInstance().cx(),
-                   Intrinsics::getInstance().cy(), Intrinsics::getInstance().fx(), Intrinsics::getInstance().fy()),
+      modelToModel(Resolution::getInstance().width(), 
+                   Resolution::getInstance().height(), 
+                   Intrinsics::getInstance().cx(),
+                   Intrinsics::getInstance().cy(), 
+                   Intrinsics::getInstance().fx(), 
+                   Intrinsics::getInstance().fy()),
       ferns(500.0f, depthCut * 1000.0f, photoThresh),
       queueLength((usePrecomputedMasksOnly || segmentationMethod != Segmentation::Method::MASK_FUSION) ? 0 : frameQueueSize),
       tick(1),
@@ -43,11 +54,16 @@ MaskFusion::MaskFusion(int timeDelta, int countThresh, float errThresh, float co
       deforms(0),
       fernDeforms(0),
       consSample(20),
-      resize(Resolution::getInstance().width(), Resolution::getInstance().height(), Resolution::getInstance().width() / consSample,
+      resize(Resolution::getInstance().width(), 
+             Resolution::getInstance().height(), 
+             Resolution::getInstance().width() / consSample,
              Resolution::getInstance().height() / consSample),
-      imageBuff(Resolution::getInstance().rows() / consSample, Resolution::getInstance().cols() / consSample),
-      consBuff(Resolution::getInstance().rows() / consSample, Resolution::getInstance().cols() / consSample),
-      timesBuff(Resolution::getInstance().rows() / consSample, Resolution::getInstance().cols() / consSample),
+      imageBuff(Resolution::getInstance().rows() / consSample, 
+                Resolution::getInstance().cols() / consSample),
+      consBuff(Resolution::getInstance().rows() / consSample, 
+               Resolution::getInstance().cols() / consSample),
+      timesBuff(Resolution::getInstance().rows() / consSample, 
+                Resolution::getInstance().cols() / consSample),
       closeLoops(closeLoops),
       iclnuim(iclnuim),
       reloc(reloc),
@@ -68,16 +84,35 @@ MaskFusion::MaskFusion(int timeDelta, int countThresh, float errThresh, float co
       modelSpawnOffset(modelSpawnOffset),
       exportSegmentation(exportSegmentationResults),
       exportDir(exportDirectory),
-      cudaIntrinsics(Intrinsics::getInstance().fx(), Intrinsics::getInstance().fy(), Intrinsics::getInstance().cx(), Intrinsics::getInstance().cy())
+      cudaIntrinsics(Intrinsics::getInstance().fx(), 
+                     Intrinsics::getInstance().fy(), 
+                     Intrinsics::getInstance().cx(), 
+                     Intrinsics::getInstance().cy())
 {
+        
     createTextures();
     createCompute();
     createFeedbackBuffers();
 
-    labelGenerator.init(Resolution::getInstance().width(), Resolution::getInstance().height(), segmentationMethod, cudaIntrinsics, textureRGB, textureDepthMetric, usePrecomputedMasksOnly, &globalProjection, &frameQueue);
+    labelGenerator.init(Resolution::getInstance().width(),
+                        Resolution::getInstance().height(), 
+                        segmentationMethod, 
+                        cudaIntrinsics, 
+                        textureRGB,
+                        textureDepthMetric, 
+                        usePrecomputedMasksOnly, 
+                        &globalProjection,
+                        &frameQueue);
+        
     auto segTextures = labelGenerator.getDrawableTextures();
-    drawableTextures.insert(drawableTextures.end(), segTextures.begin(), segTextures.end());
-    globalModel = std::make_shared<Model>(getNextModelID(true), initConfidenceGlobal, true, true, enablePoseLogging);
+    drawableTextures.insert(drawableTextures.end(), 
+                            segTextures.begin(), 
+                            segTextures.end());
+        
+    // 静态场景 第一个model static environment============================
+    globalModel = std::make_shared<Model>(getNextModelID(true), 
+                                          initConfidenceGlobal, true, true, enablePoseLogging);
+//第一个model  also contains static environment (first model)===========
     models.push_back(globalModel);
 
     // This will create an issue in the destructor, use shared pointers or similar.
@@ -89,19 +124,23 @@ MaskFusion::MaskFusion(int timeDelta, int countThresh, float errThresh, float co
     int gpuSlam = MASKFUSION_GPU_SLAM;
     if (gpuSlam >= 0) cudaSetDevice(gpuSlam);
 #if 0
-    if (cv::ocl::haveOpenCL()){
+    if (cv::ocl::haveOpenCL())
+    {
         cv::ocl::Context context;
-        if (context.create(cv::ocl::Device::TYPE_GPU)){
+        if (context.create(cv::ocl::Device::TYPE_GPU))
+        {
             int numDevices = context.ndevices();
             std::cout << "OpenCV detected " << numDevices << " GPU(s):" << std::endl;
-            for (int i = 0; i < numDevices; i++){
+            for (int i = 0; i < numDevices; i++)
+            {
                 cv::ocl::Device device = context.device(i);
                 std::cout << i << ": " << device.name()
                           << "\n (available: " << (device.available() ? "yes" : "no")
                           << ", image-support: " << (device.imageSupport() ? "yes" : "no")
                           << ", version: " << device.OpenCL_C_Version() << ")" << std::endl;
             }
-            if (setSlamGPU){
+            if (setSlamGPU)
+            {
                 if(gpuSlam < numDevices) cv::ocl::Device(context.device(gpuSlam));
                 else throw std::runtime_error("Invalid '-gpuSLAM' parameter, maybe your OpenCV version only supports 1 GPU.\n"
                                               "Consider setting 'WITH_OPENCL=OFF' in OpenCV-cmake.");
@@ -119,18 +158,24 @@ MaskFusion::MaskFusion(int timeDelta, int countThresh, float errThresh, float co
                  "\n- Using frame-queue of size: " << queueLength << std::endl;
 }
 
-MaskFusion::~MaskFusion() {
-    if (iclnuim) {
+MaskFusion::~MaskFusion() 
+{
+    if (iclnuim) 
+    {
         savePly();
     }
 
-    for (std::map<std::string, ComputePack*>::iterator it = computePacks.begin(); it != computePacks.end(); ++it) {
+    for (std::map<std::string, ComputePack*>::iterator it = computePacks.begin();
+         it != computePacks.end(); ++it) 
+    {
         delete it->second;
     }
 
     computePacks.clear();
 
-    for (std::map<std::string, FeedbackBuffer*>::iterator it = feedbackBuffers.begin(); it != feedbackBuffers.end(); ++it) {
+    for (std::map<std::string, FeedbackBuffer*>::iterator it = feedbackBuffers.begin(); 
+         it != feedbackBuffers.end(); ++it) 
+    {
         delete it->second;
     }
 
@@ -141,86 +186,121 @@ MaskFusion::~MaskFusion() {
     labelGenerator.cleanup();
 }
 
-void MaskFusion::preallocateModels(unsigned count) {
+void MaskFusion::preallocateModels(unsigned count) 
+{
     unsigned id0 = getNextModelID();
     for (unsigned i = 0; i < count; ++i)
         preallocatedModels.push_back(
-                    std::make_shared<Model>(id0++, initConfThresObject, false, true, enablePoseLogging, modelMatchingType));
+                    std::make_shared<Model>(id0++, 
+                                            initConfThresObject, 
+                                            false, true, 
+                                            enablePoseLogging,
+                                            modelMatchingType));
 }
 
-SegmentationResult MaskFusion::performSegmentation(FrameDataPointer frame) {
-    return labelGenerator.performSegmentation(models, frame, getNextModelID(), spawnOffset >= modelSpawnOffset);
+SegmentationResult MaskFusion::performSegmentation(FrameDataPointer frame) 
+{
+    return labelGenerator.performSegmentation(models, frame, 
+                                              getNextModelID(), 
+                                              spawnOffset >= modelSpawnOffset);
 }
 
-void MaskFusion::createTextures() {
-    textureRGB = std::make_shared<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, true, true);
-    textureDepthMetric = std::make_shared<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_R32F, GL_RED, GL_FLOAT, false, true);
-    textureDepthMetricFiltered = std::make_shared<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT, false, true);
-    textureMask = std::make_shared<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(),
+void MaskFusion::createTextures() 
+{
+    textureRGB = std::make_shared<GPUTexture>(Resolution::getInstance().width(),
+                                              Resolution::getInstance().height(), 
+                                              GL_RGBA, GL_RGB, GL_UNSIGNED_BYTE, true, true);
+    textureDepthMetric = std::make_shared<GPUTexture>(Resolution::getInstance().width(),
+                                                      Resolution::getInstance().height(), 
+                                                      GL_R32F, GL_RED, GL_FLOAT, false, true);
+    textureDepthMetricFiltered = std::make_shared<GPUTexture>(Resolution::getInstance().width(),
+                                                              Resolution::getInstance().height(),
+                                                              GL_LUMINANCE32F_ARB, GL_LUMINANCE,
+                                                              GL_FLOAT, false, true);
+    textureMask = std::make_shared<GPUTexture>(Resolution::getInstance().width(),
+                                               Resolution::getInstance().height(),
                                                GL_R8UI,         // GL_R8, GL_R8UI, GL_R8I internal
                                                GL_RED_INTEGER,  // GL_RED, GL_RED_INTEGER // format
                                                GL_UNSIGNED_BYTE, false, true);
 
     // Visualisation only textures
-    textureDepthNorm = std::make_shared<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_LUMINANCE32F_ARB, GL_LUMINANCE, GL_FLOAT, true);
-    textureMaskColor = std::make_shared<GPUTexture>(Resolution::getInstance().width(), Resolution::getInstance().height(), GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, true);
+    textureDepthNorm = std::make_shared<GPUTexture>(Resolution::getInstance().width(),
+                                                    Resolution::getInstance().height(),
+                                                    GL_LUMINANCE32F_ARB, GL_LUMINANCE,
+                                                    GL_FLOAT, true);
+    textureMaskColor = std::make_shared<GPUTexture>(Resolution::getInstance().width(),
+                                                    Resolution::getInstance().height(), 
+                                                    GL_RGB, GL_RGB, GL_UNSIGNED_BYTE, true);
 
     drawableTextures.push_back({"RGB", textureRGB});
     drawableTextures.push_back({"DepthNorm", textureDepthNorm});
     drawableTextures.push_back({"MaskColor", textureMaskColor});
 }
 
-void MaskFusion::createCompute() {
+void MaskFusion::createCompute() 
+{
     computePacks[ComputePack::FILTER] = new ComputePack(loadProgramFromFile("empty.vert", "depth_bilateral_metric.frag", "quad.geom"),
                                                         textureDepthMetricFiltered->texture);
     // Visualisation only
     computePacks[ComputePack::NORM_DEPTH] =
-            new ComputePack(loadProgramFromFile("empty.vert", "depth_norm.frag", "quad.geom"), textureDepthNorm->texture);
+            new ComputePack(loadProgramFromFile("empty.vert", "depth_norm.frag", "quad.geom"), 
+                            textureDepthNorm->texture);
 
     computePacks[ComputePack::COLORISE_MASKS] =
-            new ComputePack(loadProgramFromFile("empty.vert", "int_to_color.frag", "quad.geom"), textureMaskColor->texture);
+            new ComputePack(loadProgramFromFile("empty.vert", "int_to_color.frag", "quad.geom"), 
+                            textureMaskColor->texture);
 }
 
-void MaskFusion::createFeedbackBuffers() {
+void MaskFusion::createFeedbackBuffers() 
+{
     feedbackBuffers[FeedbackBuffer::RAW] =
             new FeedbackBuffer(loadProgramGeomFromFile("vertex_feedback.vert", "vertex_feedback.geom"));  // Used to render raw depth data
     feedbackBuffers[FeedbackBuffer::FILTERED] = new FeedbackBuffer(loadProgramGeomFromFile("vertex_feedback.vert", "vertex_feedback.geom"));
 }
 
-void MaskFusion::computeFeedbackBuffers() {
+void MaskFusion::computeFeedbackBuffers() 
+{
     TICK("feedbackBuffers");
     feedbackBuffers[FeedbackBuffer::RAW]->compute(textureRGB->texture, textureDepthMetric->texture, tick,
                                                   maxDepthProcessed);
 
     feedbackBuffers[FeedbackBuffer::FILTERED]->compute(textureRGB->texture,
-                                                       textureDepthMetricFiltered->texture, tick, maxDepthProcessed);
+                                                       textureDepthMetricFiltered->texture, 
+                                                       tick, maxDepthProcessed);
     TOCK("feedbackBuffers");
 }
 
-bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inPose, const float weightMultiplier, const bool bootstrap) {
-    assert(frame->depth.type() == CV_32FC1);
-    assert(frame->rgb.type() == CV_8UC3);
-    assert(frame->timestamp >= 0);
+
+// 处理帧==============================================================================
+bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inPose, 
+                              const float weightMultiplier, const bool bootstrap) 
+{
+    assert(frame->depth.type() == CV_32FC1);// 深度图
+    assert(frame->rgb.type() == CV_8UC3);   // 彩色图
+    assert(frame->timestamp >= 0);          // 时间戳
     TICK("Run");
 
-    frameQueue.push(frame);
+    frameQueue.push(frame);// 帧队列
     if(frameQueue.size() < queueLength) return 0;
-    frame = frameQueue.front();
+    frame = frameQueue.front();// 帧 出列
     frameQueue.pop();
 
-    // Upload RGB to graphics card
+    // Upload RGB to graphics card 上传RGB到GPU内存============================
     textureRGB->texture->Upload(frame->rgb.data, GL_RGB, GL_UNSIGNED_BYTE);
 
     TICK("Preprocess");
-
-    textureDepthMetric->texture->Upload((float*)frame->depth.data, GL_LUMINANCE, GL_FLOAT);
-    filterDepth();
+  
+    // 上传 深度图 到 GPU 内存============================上传RGB到GPU内存============================
+    textureDepthMetric->texture->Upload((float*)frame->depth.data,
+                                        GL_LUMINANCE, GL_FLOAT);
+    filterDepth();// 深度图滤波  750行============
 
     // if(frame.mask) {
     //    // Use ground-truth segmentation if provided (TODO: Overwritten at the moment)
     //    textureMask->texture->Upload(frame.mask, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_BYTE);
     //} else
-    if (!enableMultipleModels) {
+    if (!enableMultipleModels)
+    {
         // If the support for multiple objects is deactivated, segment everything as background (static scene).
         const long size = Resolution::getInstance().width() * Resolution::getInstance().height();
         unsigned char* data = new unsigned char[size];
@@ -231,12 +311,16 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 
     TOCK("Preprocess");
 
+  
     // First run
     if (tick == 1) {
         computeFeedbackBuffers();
-        globalModel->initialise(*feedbackBuffers[FeedbackBuffer::RAW], *feedbackBuffers[FeedbackBuffer::FILTERED]);
+        globalModel->initialise(*feedbackBuffers[FeedbackBuffer::RAW], 
+                                *feedbackBuffers[FeedbackBuffer::FILTERED]);
         globalModel->getFrameOdometry().initFirstRGB(textureRGB.get());
-    } else {
+    } 
+  else 
+  {
         bool trackingOk = true;
 
         // Regular execution, false if pose is provided by user
@@ -606,17 +690,23 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
     return false;
 }
 
-void MaskFusion::processFerns() {
+// ======================================================
+void MaskFusion::processFerns() 
+{
     TICK("Ferns::addFrame");
     ferns.addFrame(globalModel->getFillInImageTexture(), globalModel->getFillInVertexTexture(), globalModel->getFillInNormalTexture(),
                    globalModel->getPose(), tick, fernThresh);
     TOCK("Ferns::addFrame");
 }
 
-void MaskFusion::predict() {
+
+// ========================================================
+void MaskFusion::predict() 
+{
     TICK("IndexMap::ACTIVE");
 
-    for (auto& model : models) {
+    for (auto& model : models) 
+    {
         // Predict textures based on the current pose estimate
         model->combinedPredict(maxDepthProcessed, lastFrameRecovery ? 0 : tick, tick, timeDelta, ModelProjection::ACTIVE);
 
@@ -627,7 +717,9 @@ void MaskFusion::predict() {
     TOCK("IndexMap::ACTIVE");
 }
 
-bool MaskFusion::requiresFillIn(ModelPointer model, float ratio) {
+// =======================================================
+bool MaskFusion::requiresFillIn(ModelPointer model, float ratio) 
+{
     if (!model->allowsFillIn()) return false;
 
     TICK("autoFill");
@@ -635,8 +727,10 @@ bool MaskFusion::requiresFillIn(ModelPointer model, float ratio) {
     int sum = 0;
 
     // TODO do this faster
-    for (int i = 0; i < imageBuff.rows; i++) {
-        for (int j = 0; j < imageBuff.cols; j++) {
+    for (int i = 0; i < imageBuff.rows; i++)
+    {
+        for (int j = 0; j < imageBuff.cols; j++) 
+        {
             sum += imageBuff.at<Eigen::Matrix<unsigned char, 3, 1>>(i, j)(0) > 0 &&
                                                                    imageBuff.at<Eigen::Matrix<unsigned char, 3, 1>>(i, j)(1) > 0 && imageBuff.at<Eigen::Matrix<unsigned char, 3, 1>>(i, j)(2) > 0;
         }
@@ -647,7 +741,9 @@ bool MaskFusion::requiresFillIn(ModelPointer model, float ratio) {
     return float(sum) / float(imageBuff.rows * imageBuff.cols) < ratio;
 }
 
-void MaskFusion::filterDepth() {
+// ===============================
+void MaskFusion::filterDepth()
+{
     std::vector<Uniform> uniforms;
     uniforms.push_back(Uniform("cols", (float)Resolution::getInstance().cols()));
     uniforms.push_back(Uniform("rows", (float)Resolution::getInstance().rows()));
@@ -656,7 +752,8 @@ void MaskFusion::filterDepth() {
                                                &uniforms);  // Writes to TEXTURE_DEPTH_METRIC_FILTERED
 }
 
-void MaskFusion::normaliseDepth(const float& minVal, const float& maxVal) {
+void MaskFusion::normaliseDepth(const float& minVal, const float& maxVal) 
+{
     std::vector<Uniform> uniforms;
     uniforms.push_back(Uniform("maxVal", maxVal));
     uniforms.push_back(Uniform("minVal", minVal));
@@ -664,18 +761,22 @@ void MaskFusion::normaliseDepth(const float& minVal, const float& maxVal) {
                                                    &uniforms);  // Writes to TEXTURE_DEPTH_NORM
 }
 
-void MaskFusion::coloriseMasks() {
+void MaskFusion::coloriseMasks()
+{
     computePacks[ComputePack::COLORISE_MASKS]->compute(textureMask->texture);  // Writes to TEXTURE_MASK_COLOR
 }
 
-void MaskFusion::spawnObjectModel() {
+void MaskFusion::spawnObjectModel() 
+{
     assert(!newModel);
     if (preallocatedModels.size()) {
         newModel = preallocatedModels.front();
         preallocatedModels.pop_front();
         getNextModelID(true);
     } else {
-        newModel = std::make_shared<Model>(getNextModelID(true), initConfThresObject, false, true, enablePoseLogging, modelMatchingType);
+        newModel = std::make_shared<Model>(getNextModelID(true), 
+                                           initConfThresObject, false, true, 
+                                           enablePoseLogging, modelMatchingType);
     }
     newModel->getFrameOdometry().initFirstRGB(textureRGB.get());
     newModel->makeStatic(globalModel->getPose());
@@ -683,7 +784,8 @@ void MaskFusion::spawnObjectModel() {
     //newModel->makeNonStatic();
 }
 
-bool MaskFusion::redetectModels(const FrameData& frame, const SegmentationResult& segmentationResult) {
+bool MaskFusion::redetectModels(const FrameData& frame, 
+                                const SegmentationResult& segmentationResult) {
     // [Removed code]
     return false;
 }
@@ -696,10 +798,13 @@ void MaskFusion::moveNewModelToList() {
     }
 }
 
-ModelListIterator MaskFusion::inactivateModel(const ModelListIterator& it) {
+ModelListIterator MaskFusion::inactivateModel(const ModelListIterator& it) 
+{
     std::shared_ptr<Model> m = *it;
     std::cout << "Deactivating model... ";
-    if (!enableSmartModelDelete || (m->lastCount() >= modelKeepMinSurfels && m->getConfidenceThreshold() > modelKeepConfThreshold)) {
+    if (!enableSmartModelDelete || (m->lastCount() >= modelKeepMinSurfels && 
+                                    m->getConfidenceThreshold() > modelKeepConfThreshold)) 
+    {
         std::cout << "keeping data";
         // [Removed code]
         inactiveModels.push_back(m);
@@ -712,7 +817,8 @@ ModelListIterator MaskFusion::inactivateModel(const ModelListIterator& it) {
     return --models.erase(it);
 }
 
-unsigned char MaskFusion::getNextModelID(bool assign) {
+unsigned char MaskFusion::getNextModelID(bool assign) 
+{
     unsigned char next = nextID;
     if (assign) {
         if (models.size() == 256)
@@ -730,10 +836,13 @@ unsigned char MaskFusion::getNextModelID(bool assign) {
     return next;
 }
 
-void MaskFusion::savePly() {
+// 保存ply文件===================================================================
+void MaskFusion::savePly() 
+{
     std::cout << "Exporting PLYs..." << std::endl;
 
-    auto exportModelPLY = [this](ModelPointer& model) {
+    auto exportModelPLY = [this](ModelPointer& model)
+    {
 
         std::string filename = exportDir + "cloud-" + std::to_string(model->getID()) + ".ply";
         std::cout << "Storing PLY-cloud to " << filename << std::endl;
@@ -745,7 +854,8 @@ void MaskFusion::savePly() {
         Model::SurfelMap surfelMap = model->downloadMap();
         surfelMap.countValid(model->getConfidenceThreshold());
 
-        std::cout << "Extarcted " << surfelMap.numValid << " out of " << surfelMap.numPoints << " points." << std::endl;
+        std::cout << "Extarcted " << surfelMap.numValid << " out of " << 
+          surfelMap.numPoints << " points." << std::endl;
 
         // Write header
         fs << "ply";
@@ -847,11 +957,15 @@ void MaskFusion::savePly() {
     for (auto& m : models) exportModelPLY(m);
 }
 
-void MaskFusion::exportPoses() {
+// 导出位姿=============================================
+void MaskFusion::exportPoses() 
+{
     std::cout << "Exporting poses..." << std::endl;
 
-    auto exportModelPoses = [&](ModelList list) {
-        for (auto& m : list) {
+    auto exportModelPoses = [&](ModelList list) 
+    {
+        for (auto& m : list) 
+        {
             if (!m->isLoggingPoses()) continue;
             std::string filename = exportDir + "poses-" + std::to_string(m->getID()) + ".txt";
             std::cout << "Storing poses to " << filename << std::endl;
@@ -860,7 +974,8 @@ void MaskFusion::exportPoses() {
             fs.open(filename.c_str());
             fs << std::fixed << std::setprecision(6);
             auto poseLog = m->getPoseLog();
-            for (auto& p : poseLog) {
+            for (auto& p : poseLog) 
+            {
 #ifdef LOG_TICKS
                 fs << p.ts;
 #else
