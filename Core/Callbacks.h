@@ -1,18 +1,6 @@
 /*
  * This file is part of https://github.com/martinruenz/maskfusion
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
+ * 
  */
 
 #pragma once
@@ -24,26 +12,33 @@
 #include <thread>
 
 template <typename Parameter>
-struct CallbackBuffer {
+struct CallbackBuffer
+{
   CallbackBuffer(char queueSize) { this->bufferSize = queueSize; }
 
-  inline void addListener(const std::function<void(Parameter)>& listener) {
-    std::lock_guard<std::mutex> lock(mutex);
+  inline void addListener(const std::function<void(Parameter)>& listener) 
+  {
+    std::lock_guard<std::mutex> lock(mutex);// 上锁=========
     listeners.push_back(listener);
   }
 
   // Buffer size is checked seperately, see shrink().
-  inline void addElement(const Parameter& e) {
+  inline void addElement(const Parameter& e) 
+  {
     std::lock_guard<std::mutex> lock(mutex);
     if (buffer.size() > bufferSize) buffer.pop();
-    buffer.emplace(e);
+    buffer.emplace(e);// 优化之使用emplace 插入操作会涉及到两次构造
+    // emplace 可保证 一次插入，一次构造================================================
   }
 
   // Pass all elements to all listeners (empty buffer)
-  inline void callListeners() {
+  inline void callListeners()
+  {
     // std::lock_guard<std::mutex> lock(mutex);
-    while (!buffer.empty()) {  // Fixme: Race condition
-      for (auto& listener : listeners) {
+    while (!buffer.empty()) 
+    {  // Fixme: Race condition
+      for (auto& listener : listeners) 
+      {
         listener(buffer.front());
       }
       {
@@ -53,7 +48,8 @@ struct CallbackBuffer {
     }
   }
 
-  inline void callListenersDirect(const Parameter& e) {
+  inline void callListenersDirect(const Parameter& e)
+  {
     for (auto& listener : listeners) listener(e);
   }
 
