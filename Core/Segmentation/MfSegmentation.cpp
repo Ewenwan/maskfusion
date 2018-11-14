@@ -83,10 +83,12 @@ MfSegmentation::MfSegmentation(int w, int h,
 
 MfSegmentation::~MfSegmentation(){}
 
+// models 哪里过来的????????
 SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr<Model> > &models,
-                                                           FrameDataPointer frame,
-                                                           unsigned char nextModelID,
-                                                           bool allowNew){
+                                                       FrameDataPointer frame,
+                                                       unsigned char nextModelID,
+                                                       bool allowNew)
+{
     TICK("segmentation");
 #ifdef SHOW_DEBUG_VISUALISATION
     // 颜色
@@ -136,17 +138,18 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         }
         return vis;
     };
+  
     if(frame->mask.total()) 
     {
-        cv::imshow("maskrcnn", overlayMask(frame->rgb, frame->mask));
+        cv::imshow("maskrcnn", overlayMask(frame->rgb, frame->mask));// RGB图像上  加上 0.5 可见度 的 mask
         cv::waitKey(1);
     }
 #endif
 
-    if(frame->mask.total() == 0)
+    if(frame->mask.total() == 0)// 未检测到物体================================
     {
         if(!maskRCNN) throw std::runtime_error("MaskRCNN is not embedded and no masks were pre-computed.");
-        else if(sequentialMaskRCNN) maskRCNN->executeSequential(frame);
+        else if(sequentialMaskRCNN) maskRCNN->executeSequential(frame);// 使用maskRCNN检测物体
     }
 
 #ifdef WRITE_MASK_FILES
@@ -183,7 +186,7 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
                                         weightDistance, 
                                         weightConvexity);
     }
-    TICK("segmentation-geom");
+    TOCK("segmentation-geom");
 
     // Prepare per model data (ICP texture, conf texture...)
     allocateModelBuffers(nModels+1);
@@ -223,6 +226,8 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
     }
     TOCK("segmentation-DL");
 
+  
+  
     // Perform geometric segmentation
 
     TICK("segmentation-geom-post");
@@ -246,13 +251,13 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 
 #ifdef SHOW_DEBUG_VISUALISATION
     cv::Mat vis(480,640,CV_8UC3);
-    for (int i = 0; i < 640*480; ++i) 
+    for (int i = 0; i < 640*480; ++i) // 图像大小固定！！！！！！！！！！！！！！！！！！！
     {
         float f = cv8UC1Buffer.data[i] / 255.0f;// 0/1  0为不需要的
         // 要么是 (255,255,255)  要么是 (0,0,255) ==========================================
         vis.at<cv::Vec3b>(i) = f * cv::Vec3b(255,255,255) + (1-f) * cv::Vec3b(0,0,255);
     }
-    cv::imshow("Geometric edges", vis);
+    cv::imshow("Geometric edges", vis);// vis 几何边缘===============================
     cv::waitKey(1);
 #endif
 
@@ -303,36 +308,41 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         TICK("segmentation-removeedge");
 #ifdef SHOW_DEBUG_VISUALISATION
         cv::imshow("Connected Components (before edge-removal)", mapLabelToColorImage(cvLabelComps) );
-        cv::Mat re_vis;
-        frame->rgb.copyTo(re_vis);
+        cv::Mat re_vis; // 剩余的================
+        frame->rgb.copyTo(re_vis);// 彩色图像
 #endif
         auto checkNeighbor = [&, this](int y, int x, int& n, float d)
         {
             n = this->cvLabelComps.at<int>(y,x);
             // small_components_threshold 小目标区域 阈值 ===========================
             // 去除面积小于 small_components_threshold的连通域
-            // 深度值过小
+            // 深度值差值较小
             if(n != 0 && std::fabs(frame->depth.at<float>(y,x)-d) < 0.008 && statsComp.at<int>(n, 4) > small_components_threshold)
             {
 #ifdef SHOW_DEBUG_VISUALISATION
-            re_vis.at<cv::Vec3b>(y,x) = cv::Vec3b(255,0,255);
+            re_vis.at<cv::Vec3b>(y,x) = cv::Vec3b(255,0,255);// BGR 粉红色?????
 #endif
                 return true;
             }
             return false;
         };
+      
         for (int i = 0; i < removeEdgeIterations; ++i) 
         {
             cv::Mat r;
-            cvLabelComps.copyTo(r);
-            for (int y = 1; y < height-1; ++y) { // TODO reduce index computations here
-                for (int x = 1; x < width-1; ++x){
-                    int& c = r.at<int>(y,x);
+            cvLabelComps.copyTo(r);// cvLabelComps二值图像标签
+            for (int y = 1; y < height-1; ++y) 
+            { // TODO reduce index computations here
+                for (int x = 1; x < width-1; ++x)
+                {
+                    int& c = r.at<int>(y,x);// 联通域 标签值==================
 //                    statsComp.at<int>(c, 4);
-                    float d = frame->depth.at<float>(y,x);
+                    float d = frame->depth.at<float>(y,x);// 对应深度值=======
 
-                    if(c==0 || (remove_small_components && statsComp.at<int>(c, 4) < small_components_threshold)){
+                    if(c==0 || (remove_small_components && statsComp.at<int>(c, 4) < small_components_threshold))
+                    {// 背景 或者 联通域面积太小===============================
                         int c2;
+                      // 检查周围八点 是否是邻居点=======c2为0?????=======
                         if(checkNeighbor(y-1,x-1,c2,d)) { c = c2; continue; }
                         if(checkNeighbor(y-1,x,c2,d)) { c = c2; continue; }
                         if(checkNeighbor(y-1,x+1,c2,d)) { c = c2; continue; }
@@ -356,53 +366,70 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 //    cv::imwrite(std::string("/tmp/outmf/cc") + std::to_string(DV_CNT) + ".png", mapLabelToColorImage(cvLabelComps)); std::cout << "!WRITING!" << std::endl;
 #endif
 
+// 目标检测mask 和 点云分割联通域图 进行关联===========================================
     // Assign mask to each component
     TICK("segmentation-assign");
+  // 每个联通域 关联 目标检测mask========
     std::vector<int> mapComponentToMask(nComponents, 0); // By default, components are mapped to background (maskid==0)
+  // 每个目标检测mask 关联 联通域大小的总面积========  一个mask可能关联多个联通域!!!!!!!!!!!!!
     std::vector<int> maskComponentPixels(nMasks, 0); // Number of pixels per mask
-    std::vector<BoundingBox> maskComponentBoxes(nMasks);
+    std::vector<BoundingBox> maskComponentBoxes(nMasks);// mask 和 多个 联通域关联，所有联通域的矩形框 融合merge
+                                                        // 一个mask可能关联多个联通域
+  // 联通域 和 目标检测mask 重叠度 矩阵===
     cv::Mat compMaskOverlap(nComponents,nMasks,CV_32SC1, cv::Scalar(0));
-//    cv::Mat compModelOverlap(nComponents,nModels,CV_32SC1, cv::Scalar(0));
+//   cv::Mat compModelOverlap(nComponents,nModels,CV_32SC1, cv::Scalar(0));
+  // nModels 是外面传递来的
     Eigen::MatrixXi compModelOverlap = Eigen::MatrixXi::Zero(nComponents, nModels);
 
-    // Compute component-model overlap
-    for (size_t i = 0; i < total; ++i)
-        compModelOverlap(cvLabelComps.at<int>(i), projectedIDs.data[i])++;
+// Compute component-model overlap
+    for (size_t i = 0; i < total; ++i)// total = 480×640
+        compModelOverlap(cvLabelComps.at<int>(i), projectedIDs.data[i])++;// 联通域id：模型id 数量+1
 //        compModelOverlap.at<int>(cvLabelComps.at<int>(i),projectedIDs.data[i])++;
 
-    if(nMasks){
+    if(nMasks)// maskRcnn检测出物体
+    {
 
+     // 计算  联通域 和 目标检测mask 重叠度 
         // Compute component-mask overlap
-        for (size_t i = 0; i < total; ++i){
-            const unsigned char& mask_val = frame->mask.data[i];
-            const int& comp_val = cvLabelComps.at<int>(i);
+        for (size_t i = 0; i < total; ++i)// total = 480×640
+        {
+            const unsigned char& mask_val = frame->mask.data[i];// 像素对应的maskid
+            const int& comp_val = cvLabelComps.at<int>(i);      // 像素对应的联通域id
             //assert(frame->classIDs.size() > mask_val);
             //if(mask_val != 255)
-            compMaskOverlap.at<int>(comp_val,mask_val)++;
+            compMaskOverlap.at<int>(comp_val,mask_val)++;// 联通域内占用 对应mask id 像素数量
         }
 
         // Compute mapping
         const float overlap_threshold = 0.65;
-        for (int c = 1; c < nComponents; ++c) {
-            int& csize = statsComp.at<int>(c, 4);
-            if(csize > minMappedComponentSize){
+        for (int c = 1; c < nComponents; ++c) // 每个联通域
+        {
+            int& csize = statsComp.at<int>(c, 4);// 该联通域大小
+            if(csize > minMappedComponentSize)
+            {
                 int t = overlap_threshold * csize;
-                for (int m = 1; m < nMasks; ++m){
-                    if(compMaskOverlap.at<int>(c,m) > t){
-                        mapComponentToMask[c] = m;
-                        maskComponentPixels[m] += statsComp.at<int>(c, 4);
+                for (int m = 1; m < nMasks; ++m)
+                {
+                    if(compMaskOverlap.at<int>(c,m) > t)// 联通域 与 mask 重叠 0.65 以上 
+                    {
+                        mapComponentToMask[c] = m;// 联通域 c  与 mask m 关联
+                        maskComponentPixels[m] += statsComp.at<int>(c, 4);//每个目标检测mask 关联 联通域大小的总面积========  
+                                                                          // 一个mask可能关联多个联通域
+                                                      // mask 和 多个 联通域关联，所有联通域的矩形框 融合merge
                         maskComponentBoxes[m].mergeLeftTopWidthHeight(statsComp.at<int>(c, 0),
                                                                       statsComp.at<int>(c, 1),
                                                                       statsComp.at<int>(c, 2),
                                                                       statsComp.at<int>(c, 3));
                     }
                 }
-            } else {
+            }
+          else 
+          {
                 // Map tiny component to ignored
                 //mapComponentToMask[c] = 255;
 
                 // Map tiny component to background
-                mapComponentToMask[c] = 0;
+                mapComponentToMask[c] = 0;// 联通域太小，不关联 mask，或者就是背景...
             }
         }
     }
@@ -412,7 +439,7 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 
     // Group components that belong to the same mask
     for (size_t i = 0; i < total; ++i)
-        result.fullSegmentation.data[i] = mapComponentToMask[cvLabelComps.at<int>(i)];
+        result.fullSegmentation.data[i] = mapComponentToMask[cvLabelComps.at<int>(i)];// 联通域所属 mask
     TOCK("segmentation-assign");
 
     // FIX HACK
@@ -420,10 +447,15 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         if(semanticIgnoreMap.data[i])
             result.fullSegmentation.data[i] = 255;
 
-    if(removeEdgeIslands && nMasks){
+    if(removeEdgeIslands && nMasks)
+    {
         // Remove "edge islands" within masks
+      // 阈值滤波===============================
         cv::threshold(result.fullSegmentation, cv8UC1Buffer, 254, 255, cv::THRESH_TOZERO); // THRESH_BINARY is equivalent here
         cv::Mat statsEdgeComp, centroidsEdgeComp;
+      
+      
+      // 又计算了一次联通域====!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         int nEdgeComp = cv::connectedComponentsWithStats(cv8UC1Buffer, cvLabelEdges, statsEdgeComp, centroidsEdgeComp, 4);
         //cv::imshow("edge labels", mapLabelToColorImage(cvLabelEdges));
 
@@ -431,31 +463,39 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         cv::Mat islands(height, width, CV_8UC1, cv::Scalar(0));
 #endif
 
-        for (int ec = 1; ec < nEdgeComp; ++ec) {
-            for (int m = 1; m < nMasks; ++m) {
+        for (int ec = 1; ec < nEdgeComp; ++ec) // 新的联通域数量========================
+        {
+            for (int m = 1; m < nMasks; ++m)   // 每个mask ===========================
+            {
+              // 联通域 边框 转换成 边框数据
                 BoundingBox bb = BoundingBox::fromLeftTopWidthHeight(statsEdgeComp.at<int>(ec,0),
                                                                      statsEdgeComp.at<int>(ec,1),
                                                                      statsEdgeComp.at<int>(ec,2),
                                                                      statsEdgeComp.at<int>(ec,3));
-                if(maskComponentBoxes[m].includes(bb)){
+                if(maskComponentBoxes[m].includes(bb))// mask 的 边框 包含 联通域的边框===================
+                {
                     //std::cout << "mask " << m << " fully contains edge-component " << ec << std::endl;
-                    int x1 = std::max(bb.left+1,1);
+                    int x1 = std::max(bb.left+1,1);           //  边框限制 范围=======
                     int x2 = std::min(bb.right, width-2);
                     int y1 = std::max(bb.top+1, 1);
                     int y2 = std::min(bb.bottom, height-2);
                     bool doBreak = false;
-                    for (int y = y1; y <= y2; ++y) {
-                        for (int x = x1; x <= x2; ++x) {
-                            const int& le = cvLabelEdges.at<int>(y,x-1); // TODO this can be a bit faster
-                            const int& te = cvLabelEdges.at<int>(y-1,x);
-                            const int& ce = cvLabelEdges.at<int>(y,x);
+                    for (int y = y1; y <= y2; ++y) // 遍例联通域 边框=============
+                    {
+                        for (int x = x1; x <= x2; ++x) 
+                        {
+                            const int& le = cvLabelEdges.at<int>(y,x-1); // 左边 点 对应联通域属性 id
+                            const int& te = cvLabelEdges.at<int>(y-1,x); // 上边 点 对应联通域属性 id
+                            const int& ce = cvLabelEdges.at<int>(y,x);   // 中间 点 对应联通域属性 id
+                          // 对应mask id
                             const unsigned char& lm = result.fullSegmentation.at<unsigned char>(y,x-1);
                             const unsigned char& tm = result.fullSegmentation.at<unsigned char>(y-1,x);
                             const unsigned char& cm = result.fullSegmentation.at<unsigned char>(y,x);
                             if( (le!=ec && ce==ec && lm!=m) ||
                                     (le==ec && ce!=ec && cm!=m) ||
                                     (te!=ec && ce==ec && tm!=m) ||
-                                    (te==ec && ce!=ec && cm!=m)) {
+                                    (te==ec && ce!=ec && cm!=m)) 
+                            {
                                 doBreak = true;
                                 break;
                             }
@@ -465,9 +505,12 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
                     if(doBreak) break;
 
                     // This can only happen once, replace component
-                    for (int y = bb.top; y <= bb.bottom; ++y) {
-                        for (int x = bb.left; x <= bb.right; ++x) {
-                            if (cvLabelEdges.at<int>(y,x)==ec){
+                    for (int y = bb.top; y <= bb.bottom; ++y) 
+                    {
+                        for (int x = bb.left; x <= bb.right; ++x) 
+                        {
+                            if (cvLabelEdges.at<int>(y,x)==ec)
+                            {
                                 result.fullSegmentation.at<unsigned char>(y,x) = m;
                                 //islands.at<unsigned char>(y,x) = 255;
                             }
@@ -481,13 +524,16 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
 #endif
     }
 
-    if(nMasks){
+    if(nMasks)
+    {
         TICK("segmentation-assignModdel");
 
         // Perform closing on masks
         const int morphElementSize = 2*morphMaskRadius + 1;
+      // cv::MORPH_ELLIPSE 椭圆 核
         cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size(morphElementSize,morphElementSize), cv::Point(morphMaskRadius, morphMaskRadius) );
-        cv::morphologyEx(result.fullSegmentation, result.fullSegmentation, cv::MORPH_CLOSE, element, cv::Point(-1,-1), morphMaskIterations);
+      // cv::MORPH_CLOSE 闭运算
+      cv::morphologyEx(result.fullSegmentation, result.fullSegmentation, cv::MORPH_CLOSE, element, cv::Point(-1,-1), morphMaskIterations);
 
 #ifdef SHOW_DEBUG_VISUALISATION
         cv::imshow( "Before model assignment", mapLabelToColorImage(result.fullSegmentation) );
@@ -496,53 +542,65 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
         // Try mapping masks to models
 
         // Init maskToID mapping (background / ignored)
-        for (unsigned char midx = 1; midx < nMasks; ++midx) {
+        for (unsigned char midx = 1; midx < nMasks; ++midx) 
+        {
             maskToID[midx] = 0;
-            if(frame->classIDs[midx]==personClassID) maskToID[midx] = 255; // Person
+            if(frame->classIDs[midx]==personClassID) maskToID[midx] = 255; // Person  255为 忽略的
         }
 
         // Compute overlap with existing models
         for (unsigned char b = 0; b < models.size(); ++b)
             for (int j = 0; j < 256; ++j) modelBuffers[b].maskOverlap[j] = 0; // The compiler will place memset here
         //std::vector<std::vector<unsigned>> maskOverlap(models.size(), {})
-        for (size_t i = 0; i < total; ++i) {
-            const unsigned char mask = result.fullSegmentation.data[i];
+        for (size_t i = 0; i < total; ++i) 
+        {
+            const unsigned char mask = result.fullSegmentation.data[i];// mask id
             for (unsigned char b = 0; b < models.size(); ++b)
                 //if (modelBuffers[b].vertConfMap.at<float>(4*i+3) > 0) modelBuffers[b].maskOverlap[mask]++;
                 if(projectedIDs.data[i]==modelBuffers[b].modelID) modelBuffers[b].maskOverlap[mask]++;
         }
 
         // Find best match to model, for each mask
-        for (unsigned char midx = 1; midx < nMasks; ++midx) {
+        for (unsigned char midx = 1; midx < nMasks; ++midx) // 每个mask========================
+        {
             if(maskToID[midx]==255) continue; // Masks mapped to 255 are ignored
             unsigned char bestModelIndex = 0;
             unsigned int bestOverlap = 0;
             int maskClassID = frame->classIDs[midx];
-            for (unsigned char j = 1; j < models.size(); ++j) {
+            for (unsigned char j = 1; j < models.size(); ++j) 
+            {
                 const unsigned int& overlap = modelBuffers[j].maskOverlap[midx];
 //                if(overlap > bestOverlap || (overlap > 10 && bestOverlap==0)){
-                if(overlap > bestOverlap){
+                if(overlap > bestOverlap)
+                {
                     bestOverlap = overlap;
                     bestModelIndex = j;
                 }
             }
 
             bool bestModelMatchesClass = (*result.modelData[bestModelIndex].modelListIterator)->getClassID()==maskClassID;
-            if(bestOverlap < minMaskModelOverlap * maskComponentPixels[midx]){
+            if(bestOverlap < minMaskModelOverlap * maskComponentPixels[midx])
+            {
                 bestModelIndex = 0;
             }
 
             // Based on match, assign background/existing/new model
-            if(bestModelIndex!=0 && bestModelMatchesClass){
+            if(bestModelIndex!=0 && bestModelMatchesClass)
+            {
                 // Assign mask to existing model
                 maskToID[midx] = modelBuffers[bestModelIndex].modelID;
                 //modelIDToMask[maskToID[midx]] = midx;
                 SegmentationResult::ModelData& modelData = result.modelData[bestModelIndex];
                 modelData.isEmpty = false;
                 modelData.pixelCount = maskComponentPixels[midx];
-            } else {
-                if(result.hasNewLabel==false && allowNew && maskComponentPixels[midx] > minNewMaskPixels && bestModelIndex==0){
-                    // Create new model for mask
+            } 
+          else 
+          {
+                if(result.hasNewLabel==false && allowNew && 
+                   maskComponentPixels[midx] > minNewMaskPixels && 
+                   bestModelIndex==0)
+                {
+                    // Create new model for mask   为 mask 创建新的 3d 模型==================
                     maskToID[midx] = nextModelID;
                     result.hasNewLabel = true;
                     result.modelData.push_back({nextModelID});
@@ -551,7 +609,9 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
                     md.depthMean = 30; // FIXME, this requirement is not intuitive!!
                     md.depthStd = 30;
                     md.classID = maskClassID;
-                } else {
+                } 
+                else 
+                {
                     // Mask is not corresponding to any model
                     maskToID[midx] = 255;
                 }
@@ -567,17 +627,22 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
     // Try to map unused components to existing models
     if(true){
         int model, overlap;
-        for (int c = 1; c < nComponents; ++c) {
-            if(mapComponentToMask[c]==0){
+        for (int c = 1; c < nComponents; ++c) 
+        {
+            if(mapComponentToMask[c]==0)
+            {
                 int overlap = compModelOverlap.row(c).maxCoeff(&model);
                 if(model > 0 && overlap > 0.6f * statsComp.at<int>(c, 4)){
                     int x1 = statsComp.at<int>(c, 0);
                     int x2 = statsComp.at<int>(c, 0)+statsComp.at<int>(c, 2);
                     int y1 = statsComp.at<int>(c, 1);
                     int y2 = statsComp.at<int>(c, 1)+statsComp.at<int>(c, 3);
-                    for (int y = y1; y <= y2; ++y) {
-                        for (int x = x1; x <= x2; ++x) {
-                            if(cvLabelComps.at<int>(y,x)==c) {
+                    for (int y = y1; y <= y2; ++y) 
+                    {
+                        for (int x = x1; x <= x2; ++x) 
+                        {
+                            if(cvLabelComps.at<int>(y,x)==c) 
+                            {
                                 result.fullSegmentation.at<unsigned char>(y,x) = model;
                             }
                         }
@@ -603,7 +668,8 @@ SegmentationResult MfSegmentation::performSegmentation(std::list<std::shared_ptr
     return result;
 }
 
-std::vector<std::pair<std::string, std::shared_ptr<GPUTexture> > > MfSegmentation::getDrawableTextures(){
+std::vector<std::pair<std::string, std::shared_ptr<GPUTexture> > > MfSegmentation::getDrawableTextures()
+{
     return {
         { "BifoldSegmentation", segmentationMap },
         //{ "DebugMap", debugMap }
@@ -636,8 +702,10 @@ void MfSegmentation::computeLookups(){
     cudaCheckError();
 }
 
-void MfSegmentation::allocateModelBuffers(unsigned char numModels){
-    while(modelBuffers.size() < numModels){
+void MfSegmentation::allocateModelBuffers(unsigned char numModels)
+{
+    while(modelBuffers.size() < numModels)
+    {
         modelBuffers.emplace_back();
     }
 }
