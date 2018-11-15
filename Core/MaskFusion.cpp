@@ -348,48 +348,64 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
                                     frame->timestamp,
                                     requiresFillIn(*itr));
 
-
+           // 后面其他物体的
             for(++itr;itr!=models.end();itr++)
             {
                 ModelPointer& mp = (*itr);
-                if(!(*itr)->isNonstatic() && !trackAllModels){
+                if(!(*itr)->isNonstatic() && !trackAllModels)
+                {
                     mp->updateStaticPose(globalModel->getPose()); // cam->cam_0=object_0 (cam_0->object_0 = identity)
 
-                } else {
-                    Eigen::Matrix4f t = (*itr)->performTracking(frameToFrameRGB, rgbOnly, icpWeight, pyramid, fastOdom, so3, maxDepthProcessed, textureRGB.get(),
-                                                                frame->timestamp, requiresFillIn(*itr));
+                } 
+              else 
+              {
+                    Eigen::Matrix4f t = (*itr)->performTracking(frameToFrameRGB, 
+                                                                rgbOnly, icpWeight, 
+                                                                pyramid, fastOdom, 
+                                                                so3, maxDepthProcessed, 
+                                                                textureRGB.get(),
+                                                                frame->timestamp, 
+                                                                requiresFillIn(*itr));
 
                     // Don't allow big jumps (remove jumping models)
                     float d = t.topRightCorner(3, 1).norm(); // Hack, do something reasonable
-                    if(d > 0.2){
+                    if(d > 0.2) // 位移过大
+                    {
                         std::cout << "Removing model due to movement." << std::endl;
-                        //itr = inactivateModel(itr);
+                        //itr = inactivateModel(itr); // 使不活泼，阻止活动
                     }
                 }
             }
 
             TOCK("odom");
 
-            if (bootstrap) {
+            if (bootstrap) 
+            {
                 assert(inPose);
                 globalModel->overridePose(globalModel->getPose() * (*inPose));
             }
 
             trackingOk = !reloc || globalModel->getFrameOdometry().lastICPError < 1e-04;
 
-            if (enableMultipleModels) {
+            if (enableMultipleModels) 
+            {
 
                 globalProjection.project(models, tick, tick, timeDelta, depthCutoff);
                 globalProjection.downloadDirect();
 
-                auto getMaxDepth = [](const SegmentationResult::ModelData& data) -> float { return data.depthMean + data.depthStd * 1.2; };
+                auto getMaxDepth = [](const SegmentationResult::ModelData& data) -> float 
+                    { return data.depthMean + data.depthStd * 1.2; };// 深度均值 + 1.2倍方差
 
                 if (spawnOffset < modelSpawnOffset) spawnOffset++;
 
+              //  分割===============================================================
                 SegmentationResult segmentationResult = performSegmentation(frame);
-                textureMask->texture->Upload(segmentationResult.fullSegmentation.data, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_BYTE);
+              // 分割结果上传==========================================================
+                textureMask->texture->Upload(segmentationResult.fullSegmentation.data, 
+                                             GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_BYTE);
 
-                if (exportSegmentation) {
+                if (exportSegmentation)
+                {
                     cv::Mat output;
                     cv::threshold(segmentationResult.fullSegmentation, output, 254, 255, cv::THRESH_TOZERO_INV);
                     cv::imwrite(exportDir + "Segmentation" + std::to_string(tick) + ".png", output);
@@ -404,7 +420,9 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 #endif
 
                 // Spawn new model
-                if (segmentationResult.hasNewLabel) {
+              // 生成新的模型======================================
+                if (segmentationResult.hasNewLabel)
+                {
                     const SegmentationResult::ModelData& newModelData = segmentationResult.modelData.back();
                     std::cout << "New label detected ("
                               << newModelData.boundingBox.left << ","
@@ -418,7 +436,7 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
                     spawnObjectModel();
                     spawnOffset = 0;
 
-                    newModel->setMaxDepth(getMaxDepth(newModelData));
+                    newModel->setMaxDepth(getMaxDepth(newModelData));// 模型 深度
                     newModel->setClassID(newModelData.classID);
 
                     moveNewModelToList();
@@ -426,88 +444,113 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 
                 // Set max-depth for all models
                 ModelList::iterator it = models.begin();
-                for (unsigned i = 1; i < models.size(); i++) {
+                for (unsigned i = 1; i < models.size(); i++) 
+                {
                     ModelPointer& m = *++it;
                     m->setMaxDepth(getMaxDepth(segmentationResult.modelData[i]));
                 }
 
                 // Initialise new model data
-                if (segmentationResult.hasNewLabel) {
+                if (segmentationResult.hasNewLabel)
+                {
                     ModelPointer& nm = models.back();
                     nm->predictIndices(tick, maxDepthProcessed, timeDelta);
 
-                    nm->fuse(tick, textureRGB.get(), textureMask.get(), textureDepthMetric.get(),
-                             textureDepthMetricFiltered.get(), maxDepthProcessed, 100);
+                    nm->fuse(tick, textureRGB.get(), 
+                             textureMask.get(), 
+                             textureDepthMetric.get(),
+                             textureDepthMetricFiltered.get(), 
+                             maxDepthProcessed, 100);
 
                     // newModel->predictIndices(tick, maxDepthProcessed, timeDelta);
 
                     std::vector<float> test;
-                    nm->clean(tick, test, timeDelta, maxDepthProcessed, false, textureDepthMetricFiltered.get(),
+                    nm->clean(tick, test, timeDelta, 
+                              maxDepthProcessed, false, 
+                              textureDepthMetricFiltered.get(),
                               textureMask.get());
 
                     enableSpawnSubtraction = false;
-                    if (enableSpawnSubtraction) {
+                    if (enableSpawnSubtraction) 
+                    {
                         globalModel->eraseErrorGeometry(textureDepthMetricFiltered.get());
                     }
                 }
 
                 // Check for nonstatic objects
                 it = models.begin();
-                for (unsigned i = 1; i < models.size(); i++) {
+                for (unsigned i = 1; i < models.size(); i++) 
+                {
                     ModelPointer& m = *++it;
                     SegmentationResult::ModelData& md = segmentationResult.modelData[i];
                 }
 
                 // increase confidence of object-models
                 it = models.begin();
-                for (unsigned i = 1; i < models.size(); i++) {
+                for (unsigned i = 1; i < models.size(); i++)
+                {
                     ModelPointer& m = *++it;
                     float factor = std::min(4.5f, m->getAge() / 25.0f);
                     m->setConfidenceThreshold(factor);
                 }
             }
 
-            if (reloc) {
-                if (!lost) {
+            if (reloc) 
+            {
+                if (!lost) 
+                {
+              // 每个模型的 轨迹===========================！！！！！！！！！    
                     Eigen::MatrixXd covariance = globalModel->getFrameOdometry().getCovariance();
 
-                    for (int i = 0; i < 6; i++) {
-                        if (covariance(i, i) > 1e-04) {
+                    for (int i = 0; i < 6; i++) 
+                    {
+                        if (covariance(i, i) > 1e-04) 
+                        {
                             trackingOk = false;
                             break;
                         }
                     }
 
-                    if (!trackingOk) {
+                    if (!trackingOk) 
+                    {
                         trackingCount++;
 
-                        if (trackingCount > 10) {
+                        if (trackingCount > 10)
+                        {
                             lost = true;
                         }
-                    } else {
-                        trackingCount = 0;
                     }
-                } else if (lastFrameRecovery) {
+                  else 
+                  {
+                        trackingCount = 0;
+                  }
+                } 
+                else if (lastFrameRecovery)
+                {
                     Eigen::MatrixXd covariance = globalModel->getFrameOdometry().getCovariance();
 
-                    for (int i = 0; i < 6; i++) {
-                        if (covariance(i, i) > 1e-04) {
+                    for (int i = 0; i < 6; i++) 
+                    {
+                        if (covariance(i, i) > 1e-04) 
+                        {
                             trackingOk = false;
                             break;
                         }
                     }
 
-                    if (trackingOk) {
+                    if (trackingOk)
+                    {
                         lost = false;
                         trackingCount = 0;
                     }
 
                     lastFrameRecovery = false;
                 }
-            }  // reloc
+          }  // reloc
 
         }  // regular
-        else {
+        else
+        {
             globalModel->overridePose(*inPose);
         }
 
@@ -517,12 +560,17 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 
         Eigen::Matrix4f recoveryPose = globalModel->getPose();
 
-        if (closeLoops) {
+        if (closeLoops) 
+        {
             lastFrameRecovery = false;
 
             TICK("Ferns::findFrame");
-            recoveryPose = ferns.findFrame(constraints, globalModel->getPose(), globalModel->getFillInVertexTexture(),
-                                           globalModel->getFillInNormalTexture(), globalModel->getFillInImageTexture(), tick, lost);
+            recoveryPose = ferns.findFrame(constraints, 
+                                           globalModel->getPose(),
+                                           globalModel->getFillInVertexTexture(),
+                                           globalModel->getFillInNormalTexture(),
+                                           globalModel->getFillInImageTexture(), 
+                                           tick, lost);
             TOCK("Ferns::findFrame");
         }
 
@@ -530,22 +578,35 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 
         bool fernAccepted = false;
 
-        if (closeLoops && ferns.lastClosest != -1) {
+        if (closeLoops && ferns.lastClosest != -1) 
+        {
             if (lost) {
                 globalModel->overridePose(recoveryPose);
                 lastFrameRecovery = true;
-            } else {
+            }
+            else
+            {
                 for (size_t i = 0; i < constraints.size(); i++)
-                    globalDeformation.addConstraint(constraints.at(i).sourcePoint, constraints.at(i).targetPoint, tick,
-                                                    ferns.frames.at(ferns.lastClosest)->srcTime, true);
+                    globalDeformation.addConstraint(constraints.at(i).sourcePoint, 
+                                                    constraints.at(i).targetPoint, 
+                                                    tick,
+                                                    ferns.frames.at(ferns.lastClosest)->srcTime,
+                                                    true);
 
-                for (size_t i = 0; i < relativeCons.size(); i++) globalDeformation.addConstraint(relativeCons.at(i));
+                for (size_t i = 0; i < relativeCons.size(); i++) 
+                    globalDeformation.addConstraint(relativeCons.at(i));
 
                 assert(0);  // FIXME, input pose-graph again.
-                if (globalDeformation.constrain(ferns.frames, rawGraph, tick, true, /*poseGraph,*/ true)) {
+                if (globalDeformation.constrain(ferns.frames,
+                                                rawGraph, tick, 
+                                                true, /*poseGraph,*/ true)) 
+                {
                     globalModel->overridePose(recoveryPose);
-                    poseMatches.push_back(PoseMatch(ferns.lastClosest, ferns.frames.size(), ferns.frames.at(ferns.lastClosest)->pose,
-                                                    globalModel->getPose(), constraints, true));
+                    poseMatches.push_back(PoseMatch(ferns.lastClosest, 
+                                                    ferns.frames.size(), 
+                                                    ferns.frames.at(ferns.lastClosest)->pose,
+                                                    globalModel->getPose(), 
+                                                    constraints, true));
                     fernDeforms += rawGraph.size() > 0;
                     fernAccepted = true;
                 }
@@ -553,10 +614,13 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
         }
 
         // If we didn't match to a fern
-        if (!lost && closeLoops && rawGraph.size() == 0) {
+        if (!lost && closeLoops && rawGraph.size() == 0) 
+        {
             // Only predict old view, since we just predicted the current view for the ferns (which failed!)
             TICK("IndexMap::INACTIVE");
-            globalModel->combinedPredict(maxDepthProcessed, 0, tick - timeDelta, timeDelta, ModelProjection::INACTIVE);
+            globalModel->combinedPredict(maxDepthProcessed, 0, 
+                                         tick - timeDelta, timeDelta,
+                                         ModelProjection::INACTIVE);
             TOCK("IndexMap::INACTIVE");
 
             // WARNING initICP* must be called before initRGB*
@@ -576,8 +640,10 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
             Eigen::MatrixXd covar = modelToModel.getCovariance();
             bool covOk = true;
 
-            for (int i = 0; i < 6; i++) {
-                if (covar(i, i) > covThresh) {
+            for (int i = 0; i < 6; i++) 
+            {
+                if (covar(i, i) > covThresh) 
+                {
                     covOk = false;
                     break;
                 }
@@ -588,25 +654,36 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
             estPose.topRightCorner(3, 1) = trans;
             estPose.topLeftCorner(3, 3) = rot;
 
-            if (covOk && modelToModel.lastICPCount > icpCountThresh && modelToModel.lastICPError < icpErrThresh) {
+            if (covOk && modelToModel.lastICPCount > icpCountThresh && modelToModel.lastICPError < icpErrThresh) 
+            {
                 resize.vertex(indexMap.getSplatVertexConfTex(), consBuff);
                 resize.time(indexMap.getOldTimeTex(), timesBuff);
 
-                for (int i = 0; i < consBuff.cols; i++) {
-                    for (int j = 0; j < consBuff.rows; j++) {
-                        if (consBuff.at<Eigen::Vector4f>(j, i)(2) > 0 && consBuff.at<Eigen::Vector4f>(j, i)(2) < maxDepthProcessed &&
-                                timesBuff.at<unsigned short>(j, i) > 0) {
+                for (int i = 0; i < consBuff.cols; i++) 
+                {
+                    for (int j = 0; j < consBuff.rows; j++)
+                    {
+                        if (consBuff.at<Eigen::Vector4f>(j, i)(2) > 0 && 
+                            consBuff.at<Eigen::Vector4f>(j, i)(2) < maxDepthProcessed &&
+                                timesBuff.at<unsigned short>(j, i) > 0)
+                        {
                             Eigen::Vector4f worldRawPoint =
-                                    globalModel->getPose() * Eigen::Vector4f(consBuff.at<Eigen::Vector4f>(j, i)(0), consBuff.at<Eigen::Vector4f>(j, i)(1),
-                                                                             consBuff.at<Eigen::Vector4f>(j, i)(2), 1.0f);
+                                    globalModel->getPose() * Eigen::Vector4f(consBuff.at<Eigen::Vector4f>(j, i)(0), 
+                                                                             consBuff.at<Eigen::Vector4f>(j, i)(1),
+                                                                             consBuff.at<Eigen::Vector4f>(j, i)(2), 
+                                                                             1.0f);
 
                             Eigen::Vector4f worldModelPoint =
-                                    globalModel->getPose() * Eigen::Vector4f(consBuff.at<Eigen::Vector4f>(j, i)(0), consBuff.at<Eigen::Vector4f>(j, i)(1),
-                                                                             consBuff.at<Eigen::Vector4f>(j, i)(2), 1.0f);
+                                    globalModel->getPose() * Eigen::Vector4f(consBuff.at<Eigen::Vector4f>(j, i)(0), 
+                                                                             consBuff.at<Eigen::Vector4f>(j, i)(1),
+                                                                             consBuff.at<Eigen::Vector4f>(j, i)(2), 
+                                                                             1.0f);
 
                             constraints.push_back(Ferns::SurfaceConstraint(worldRawPoint, worldModelPoint));
 
-                            localDeformation.addConstraint(worldRawPoint, worldModelPoint, tick, timesBuff.at<unsigned short>(j, i), deforms == 0);
+                            localDeformation.addConstraint(worldRawPoint, worldModelPoint, 
+                                                           tick, timesBuff.at<unsigned short>(j, i), 
+                                                           deforms == 0);
                         }
                     }
                 }
@@ -614,29 +691,40 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
                 std::vector<Deformation::Constraint> newRelativeCons;
 
                 assert(0);
-                if (localDeformation.constrain(ferns.frames, rawGraph, tick, false, /*poseGraph,*/ false, &newRelativeCons)) {
+                if (localDeformation.constrain(ferns.frames, rawGraph, tick, 
+                                               false, /*poseGraph,*/ false, &newRelativeCons))
+                {
                     poseMatches.push_back(
-                                PoseMatch(ferns.frames.size() - 1, ferns.frames.size(), estPose, globalModel->getPose(), constraints, false));
+                                PoseMatch(ferns.frames.size() - 1, 
+                                          ferns.frames.size(), estPose,
+                                          globalModel->getPose(), 
+                                          constraints, false));
 
                     deforms += rawGraph.size() > 0;
 
                     globalModel->overridePose(estPose);
 
-                    for (size_t i = 0; i < newRelativeCons.size(); i += newRelativeCons.size() / 3) {
+                    for (size_t i = 0; i < newRelativeCons.size(); i += newRelativeCons.size() / 3) 
+                    {
                         relativeCons.push_back(newRelativeCons.at(i));
                     }
                 }
             }
         }
 
-        if (!rgbOnly && trackingOk && !lost) {
+        if (!rgbOnly && trackingOk && !lost) 
+        {
             TICK("indexMap");
             for (auto model : models) model->predictIndices(tick, maxDepthProcessed, timeDelta);
             TOCK("indexMap");
 
-            for (auto model : models) {
-                model->fuse(tick, textureRGB.get(), textureMask.get(), textureDepthMetric.get(),
-                            textureDepthMetricFiltered.get(), depthCutoff, weightMultiplier);
+            for (auto model : models) 
+            {
+                model->fuse(tick, textureRGB.get(),
+                            textureMask.get(), 
+                            textureDepthMetric.get(),
+                            textureDepthMetricFiltered.get(),
+                            depthCutoff, weightMultiplier);
             }
 
             TICK("indexMap");
@@ -646,13 +734,25 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
             // If we're deforming we need to predict the depth again to figure out which
             // points to update the timestamp's of, since a deformation means a second pose update
             // this loop
-            if (rawGraph.size() > 0 && !fernAccepted) {
-                globalModel->getIndexMap().synthesizeDepth(globalModel->getPose(), globalModel->getModelBuffer(), maxDepthProcessed, initConfThresGlobal,
-                                                           tick, tick - timeDelta, std::numeric_limits<unsigned short>::max());
+            if (rawGraph.size() > 0 && !fernAccepted) 
+            {
+                globalModel->getIndexMap().synthesizeDepth(globalModel->getPose(), 
+                                                           globalModel->getModelBuffer(),
+                                                           maxDepthProcessed, 
+                                                           initConfThresGlobal,
+                                                           tick, 
+                                                           tick - timeDelta,
+                                                           std::numeric_limits<unsigned short>::max());
             }
 
-            for (auto model : models) {
-                model->clean(tick, rawGraph, timeDelta, maxDepthProcessed, fernAccepted, textureDepthMetricFiltered.get(),
+            for (auto model : models) 
+            {
+                model->clean(tick, 
+                             rawGraph,
+                             timeDelta,
+                             maxDepthProcessed, 
+                             fernAccepted, 
+                             textureDepthMetricFiltered.get(),
                              textureMask.get());
             }
         }
@@ -661,7 +761,8 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
     // Update index-map textures
     predict();
 
-    if (!lost) {
+    if (!lost) 
+    {
         // processFerns(); FIXME
         tick++;
     }
@@ -670,8 +771,10 @@ bool MaskFusion::processFrame(FrameDataPointer frame, const Eigen::Matrix4f* inP
 
     bool first = true;
 
-    for (auto model : models) {
-        if (model->isLoggingPoses()) {
+    for (auto model : models) 
+    {
+        if (model->isLoggingPoses()) 
+        {
             auto pose = first ? globalModel->getPose() :                          // cam->world
                                 globalModel->getPose() * model->getPose().inverse();  // obj->world
 
@@ -967,6 +1070,7 @@ void MaskFusion::savePly()
 }
 
 // 导出位姿=============================================
+// 每个模型都有 位姿序列======
 void MaskFusion::exportPoses() 
 {
     std::cout << "Exporting poses..." << std::endl;
