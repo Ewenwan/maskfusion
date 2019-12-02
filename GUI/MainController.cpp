@@ -1,4 +1,4 @@
-/*
+/* 胖果林 可视化 GUI 进度条显示 
  * This file is part of ElasticFusion.
  *
  * Copyright (C) 2015 Imperial College London
